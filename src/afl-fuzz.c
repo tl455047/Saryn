@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "cmplog.h"
+#include "memlog.h"
 #include <limits.h>
 #include <stdlib.h>
 #ifndef USEMMAP
@@ -45,8 +46,8 @@ extern u64 time_spent_working;
 
 static void at_exit() {
 
-  s32   i, pid1 = 0, pid2 = 0;
-  char *list[4] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, NULL};
+  s32   i, pid1 = 0, pid2 = 0, pid3 = 0;
+  char *list[5] = {SHM_ENV_VAR, SHM_FUZZ_ENV_VAR, CMPLOG_SHM_ENV_VAR, MEMLOG_SHM_ENV_VAR, NULL};
   char *ptr;
 
   ptr = getenv(CPU_AFFINITY_ENV_VAR);
@@ -57,6 +58,9 @@ static void at_exit() {
 
   ptr = getenv("__AFL_TARGET_PID2");
   if (ptr && *ptr && (pid2 = atoi(ptr)) > 0) kill(pid2, SIGTERM);
+
+  ptr = getenv("__AFL_TARGET_PID3");
+  if (ptr && *ptr && (pid3 = atoi(ptr)) > 0) kill(pid3, SIGTERM);
 
   i = 0;
   while (list[i] != NULL) {
@@ -440,11 +444,19 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Z")) >
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Y:Z")) >
          0) {
 
     switch (opt) {
 
+      // enable memlog mode
+      case 'Y': {
+       
+        afl->shm.memlog_mode = 1;
+        afl->memlog_binary = ck_strdup(optarg);
+        break;
+
+      }
       case 'Z':
         afl->old_seed_selection = 1;
         break;
@@ -1177,6 +1189,9 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (afl->fsrv.mem_limit && afl->shm.cmplog_mode) afl->fsrv.mem_limit += 260;
 
+  // How many memory does memlog mode need ?
+  if (afl->fsrv.mem_limit && afl->shm.memlog_mode) afl->fsrv.mem_limit += 260;
+
   OKF("afl++ is maintained by Marc \"van Hauser\" Heuse, Heiko \"hexcoder\" "
       "Eißfeldt, Andrea Fioraldi and Dominik Maier");
   OKF("afl++ is open source, get it at "
@@ -1700,6 +1715,23 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (afl->memlog_binary) {
+
+    if (afl->unicorn_mode) {
+       // I don't know is compatible or not, I just copy code of cmplog mode.
+      FATAL("MemLog and Unicorn mode are not compatible at the moment, sorry");
+
+    }
+
+    if (!afl->fsrv.qemu_mode && !afl->fsrv.frida_mode && !afl->fsrv.cs_mode &&
+        !afl->non_instrumented_mode) {
+
+      check_binary(afl, afl->memlog_binary);
+
+    }
+
+  }
+
   check_binary(afl, argv[optind]);
 
   #ifdef AFL_PERSISTENT_RECORD
@@ -1881,6 +1913,74 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     OKF("Cmplog forkserver successfully started");
+
+  }
+
+  if (afl->memlog_binary) {
+
+    ACTF("Spawning memlog forkserver");
+    afl_fsrv_init_dup(&afl->memlog_fsrv, &afl->fsrv);
+    // TODO: this is semi-nice
+    afl->memlog_fsrv.trace_bits = afl->fsrv.trace_bits;
+    afl->memlog_fsrv.cs_mode = afl->fsrv.cs_mode;
+    afl->memlog_fsrv.qemu_mode = afl->fsrv.qemu_mode;
+    afl->memlog_fsrv.frida_mode = afl->fsrv.frida_mode;
+    afl->memlog_fsrv.memlog_binary = afl->memlog_binary;
+    afl->memlog_fsrv.init_child_func = memlog_exec_child;
+
+    if ((map_size <= DEFAULT_SHMEM_SIZE ||
+         afl->memlog_fsrv.map_size < map_size) &&
+        !afl->non_instrumented_mode && !afl->fsrv.qemu_mode &&
+        !afl->fsrv.frida_mode && !afl->unicorn_mode && !afl->fsrv.cs_mode &&
+        !afl->afl_env.afl_skip_bin_check) {
+
+      afl->memlog_fsrv.map_size = MAX(map_size, (u32)DEFAULT_SHMEM_SIZE);
+      char vbuf[16];
+      snprintf(vbuf, sizeof(vbuf), "%u", afl->memlog_fsrv.map_size);
+      setenv("AFL_MAP_SIZE", vbuf, 1);
+
+    }
+
+    u32 new_map_size =
+        afl_fsrv_get_mapsize(&afl->memlog_fsrv, afl->argv, &afl->stop_soon,
+                             afl->afl_env.afl_debug_child);
+
+    // only reinitialize when it needs to be larger
+    if (map_size < new_map_size) {
+
+      OKF("Re-initializing maps to %u bytes due memlog", new_map_size);
+
+      afl->virgin_bits = ck_realloc(afl->virgin_bits, new_map_size);
+      afl->virgin_tmout = ck_realloc(afl->virgin_tmout, new_map_size);
+      afl->virgin_crash = ck_realloc(afl->virgin_crash, new_map_size);
+      afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
+      afl->top_rated =
+          ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
+      afl->clean_trace_custom =
+          ck_realloc(afl->clean_trace_custom, new_map_size);
+      afl->first_trace = ck_realloc(afl->first_trace, new_map_size);
+      afl->map_tmp_buf = ck_realloc(afl->map_tmp_buf, new_map_size);
+
+      afl_fsrv_kill(&afl->fsrv);
+      afl_fsrv_kill(&afl->memlog_fsrv);
+      afl_shm_deinit(&afl->shm);
+
+      afl->memlog_fsrv.map_size = new_map_size;  // non-memlog stays the same
+      map_size = new_map_size;
+
+      setenv("AFL_NO_AUTODICT", "1", 1);  // loaded already
+      afl->fsrv.trace_bits =
+          afl_shm_init(&afl->shm, new_map_size, afl->non_instrumented_mode);
+      afl->memlog_fsrv.trace_bits = afl->fsrv.trace_bits;
+      afl_fsrv_start(&afl->fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
+      afl_fsrv_start(&afl->memlog_fsrv, afl->argv, &afl->stop_soon,
+                     afl->afl_env.afl_debug_child);
+
+    }
+
+    OKF("Memlog forkserver successfully started");
 
   }
 

@@ -27,7 +27,7 @@
 #include <string.h>
 #include <limits.h>
 #include "cmplog.h"
-
+#include "memlog.h"
 /* MOpt */
 
 static int select_algorithm(afl_state_t *afl, u32 max_algorithm) {
@@ -579,6 +579,19 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
+  }
+
+  // memlog mode
+  // need to check input size, input size should be
+  // smaller than 2^16.
+  if (unlikely(afl->shm.memlog_mode) && len <= MEMLOG_MAXIMUM_INPUT_SIZE) {
+    memcpy(out_buf, in_buf, len);
+    if (memlog_stage(afl, in_buf, out_buf, len)) {
+
+      goto abandon_entry;
+
+    }
+    
   }
 
   /* Skip right away if -d is given, if it has not been chosen sufficiently

@@ -462,6 +462,10 @@
 
 #define CMPLOG_SHM_ENV_VAR "__AFL_CMPLOG_SHM_ID"
 
+/* Memlog */
+
+#define MEMLOG_SHM_ENV_VAR "__AFL_MEMLOG_SHM_ID"
+
 /* CPU Affinity lockfile env var */
 
 #define CPU_AFFINITY_ENV_VAR "__AFL_LOCKFILE"
@@ -505,6 +509,14 @@
 /* Maximum mutations on a string */
 
 #define AFL_TXT_STRING_MAX_MUTATIONS 6
+
+/* Memlog mutator num */
+
+#define MEMLOG_MUTATOR_NUM 1
+
+/* Memlog hook num */
+
+#define MEMLOG_HOOK_NUM 10
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

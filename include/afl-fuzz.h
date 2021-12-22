@@ -576,6 +576,24 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       exit_on_time;                     /* Delay to exit if no new paths    */
 
+  u32 memlog_id,                        /*           Memlog info            */
+      memlog_hits,
+      memlog_type,
+      memlog_op_type,
+      memlog_idx_num,
+      memlog_idx,
+      memlog_ofs;
+  u64 memlog_val;
+
+  u32 unstable_len,                     /*       taint inference info       */
+      is_colored,
+      memlog_tainted_len,
+      color_tainted_len,
+      infer_tainted_len,
+      ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM],
+      color_ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM],
+      infer_ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM];
+
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
 
@@ -642,6 +660,11 @@ typedef struct afl_state {
   char *           cmplog_binary;
   afl_forkserver_t cmplog_fsrv;     /* cmplog has its own little forkserver */
 
+  /* MemLog */
+
+  char *           memlog_binary;
+  afl_forkserver_t memlog_fsrv; 
+
   /* Custom mutators */
   struct custom_mutator *mutator;
 
@@ -655,6 +678,7 @@ typedef struct afl_state {
 
   struct afl_pass_stat *pass_stats;
   struct cmp_map *      orig_cmp_map;
+  struct mem_map *      orig_mem_map;
 
   u8 describe_op_buf_256[256]; /* describe_op will use this to return a string
                                   up to 256 */
@@ -1140,6 +1164,13 @@ u8     check_if_text_buf(u8 *buf, u32 len);
 /* CmpLog */
 
 u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
+
+/* Memlog */
+
+u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
+
+/* temporary name */
+u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

@@ -434,6 +434,12 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
     }
 
+    if (!fsrv->memlog_binary) {
+
+      unsetenv(MEMLOG_SHM_ENV_VAR);  // we do not want that in non-memlog fsrv
+
+    }
+
     /* Umpf. On OpenBSD, the default fd limit for root users is set to
        soft 128. Let's try to fix that... */
     if (!getrlimit(RLIMIT_NOFILE, &r) && r.rlim_cur < FORKSRV_FD + 2) {
@@ -597,7 +603,10 @@ void afl_fsrv_start(afl_forkserver_t *fsrv, char **argv,
 
   char pid_buf[16];
   sprintf(pid_buf, "%d", fsrv->fsrv_pid);
-  if (fsrv->cmplog_binary)
+
+  if (fsrv->memlog_binary)
+    setenv("__AFL_TARGET_PID3", pid_buf, 1);
+  else if (fsrv->cmplog_binary)
     setenv("__AFL_TARGET_PID2", pid_buf, 1);
   else
     setenv("__AFL_TARGET_PID1", pid_buf, 1);

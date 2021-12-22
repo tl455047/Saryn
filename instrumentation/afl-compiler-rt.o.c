@@ -20,6 +20,7 @@
 #include "config.h"
 #include "types.h"
 #include "cmplog.h"
+#include "memlog.h"
 #include "llvm-alternative-coverage.h"
 
 #define XXH_INLINE_ALL
@@ -121,6 +122,9 @@ int __afl_sharedmem_fuzzing __attribute__((weak));
 
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
+
+struct mem_map *__afl_mem_map;
+struct mem_map *__afl_mem_map_backup;
 
 /* Child pid? */
 
@@ -579,6 +583,71 @@ static void __afl_map_shm(void) {
 
   }
 
+  id_str = getenv(MEMLOG_SHM_ENV_VAR);
+
+  if (__afl_debug) {
+
+    fprintf(stderr, "DEBUG: memlog id_str %s\n",
+            id_str == NULL ? "<null>" : id_str);
+
+  }
+
+  if (id_str) {
+
+    if ((__afl_dummy_fd[1] = open("/dev/null", O_WRONLY)) < 0) {
+
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
+
+    }
+
+#ifdef USEMMAP
+    const char *    shm_file_path = id_str;
+    int             shm_fd = -1;
+    struct mem_map *shm_base = NULL;
+
+    /* create the shared memory segment as if it was a file */
+    shm_fd = shm_open(shm_file_path, O_RDWR, DEFAULT_PERMISSION);
+    if (shm_fd == -1) {
+
+      perror("shm_open() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(1);
+
+    }
+
+    /* map the shared memory segment to the address space of the process */
+    shm_base = mmap(0, sizeof(struct mem_map), PROT_READ | PROT_WRITE,
+                    MAP_SHARED, shm_fd, 0);
+    if (shm_base == MAP_FAILED) {
+
+      close(shm_fd);
+      shm_fd = -1;
+
+      fprintf(stderr, "mmap() failed\n");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      exit(2);
+
+    }
+
+    __afl_mem_map = shm_base;
+#else
+    u32 shm_id = atoi(id_str);
+
+    __afl_mem_map = (struct mem_map *)shmat(shm_id, NULL, 0);
+#endif
+
+    __afl_mem_map_backup = __afl_mem_map;
+
+    if (!__afl_mem_map || __afl_mem_map == (void *)-1) {
+
+      perror("shmat for memlog");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+  }
+
 }
 
 /* unmap SHM. */
@@ -627,6 +696,25 @@ static void __afl_unmap_shm(void) {
 
     __afl_cmp_map = NULL;
     __afl_cmp_map_backup = NULL;
+
+  }
+
+  id_str = getenv(MEMLOG_SHM_ENV_VAR);
+
+  if (id_str) {
+
+#ifdef USEMMAP
+
+    munmap((void *)__afl_mem_map, __afl_map_size);
+
+#else
+
+    shmdt((void *)__afl_mem_map);
+
+#endif
+
+    __afl_mem_map = NULL;
+    __afl_mem_map_backup = NULL;
 
   }
 
@@ -911,7 +999,7 @@ static void __afl_start_forkserver(void) {
   signal(SIGTERM, at_exit);
 
 #ifdef __linux__
-  if (/*!is_persistent &&*/ !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
+  if (/*!is_persistent &&*/!__afl_mem_map && !__afl_cmp_map && !getenv("AFL_NO_SNAPSHOT") &&
       afl_snapshot_init() >= 0) {
 
     __afl_start_snapshots();

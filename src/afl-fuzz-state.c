@@ -553,7 +553,8 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->sync_id) { ck_free(afl->out_dir); }
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
-
+  if (afl->orig_mem_map) { ck_free(afl->orig_mem_map); }
+  
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);
   afl_free(afl->out_scratch_buf);

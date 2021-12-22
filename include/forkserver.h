@@ -101,6 +101,8 @@ typedef struct afl_forkserver {
 
   char *cmplog_binary;                  /* the name of the cmplog binary    */
 
+  char *memlog_binary;                  /* the name of the memlog binary    */
+  
   /* persistent mode replay functionality */
   u32 persistent_record;                /* persistent replay setting        */
 #ifdef AFL_PERSISTENT_RECORD

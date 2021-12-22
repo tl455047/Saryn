@@ -25,6 +25,7 @@
 
 #include "afl-fuzz.h"
 #include "envs.h"
+#include "memlog.h"
 #include <limits.h>
 
 /* Write fuzzer setup file */
@@ -1187,6 +1188,154 @@ void show_stats(afl_state_t *afl) {
   } else {
 
     SAYF("\r");
+
+  }
+
+  /* taint inference */
+  if (afl->shm.memlog_mode == 1) {
+    u32 offset;
+    s32 count;
+                                       
+    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference(check) " bSTG bH2 bH bH5 bH10 bH2 bH bH2 bH2 bH2 bVL"\n");                                         
+    sprintf(tmp, "%d/%d/%d", afl->memlog_tainted_len, afl->queue_cur->len, afl->unstable_len);
+    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
+
+    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
+      offset = 0;
+      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
+        if (j == 0)
+          count = sprintf(tmp + offset, "%d", afl->ht_tainted[i][j]);
+        else  
+          count = sprintf(tmp + offset, "/%d", afl->ht_tainted[i][j]); 
+
+        if (count < 0)
+          break;
+        else  
+          offset += count;
+      }
+
+      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
+
+    }
+
+     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
+    sprintf(tmp, "%d/%d/%d", afl->infer_tainted_len, afl->queue_cur->len, afl->unstable_len);
+    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
+
+    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
+      offset = 0;
+      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
+        if (j == 0)
+          count = sprintf(tmp + offset, "%d", afl->infer_ht_tainted[i][j]);
+        else  
+          count = sprintf(tmp + offset, "/%d", afl->infer_ht_tainted[i][j]); 
+
+        if (count < 0)
+          break;
+        else  
+          offset += count;
+      }
+
+      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
+
+    }
+    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " colorization " bSTG bH10 bH10 bH10 bH2 bH2 bH2 bH bVL"\n");                                         
+    sprintf(tmp, "%d/%d/%d", afl->color_tainted_len, afl->queue_cur->len, afl->unstable_len);
+    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
+
+    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
+      offset = 0;
+      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
+        if (j == 0)
+          count = sprintf(tmp + offset, "%d", afl->color_ht_tainted[i][j]);
+        else  
+          count = sprintf(tmp + offset, "/%d", afl->color_ht_tainted[i][j]); 
+
+        if (count < 0)
+          break;
+        else  
+          offset += count;
+      }
+
+      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
+
+    }
+
+    SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
+    sprintf(tmp, "%d", afl->memlog_ofs);                        
+    SAYF(bV bSTOP "input offset : "  cRST "%-36s " bSTG bV"\n", tmp);  
+    sprintf(tmp, "%d", afl->memlog_id);
+    SAYF(bV bSTOP "          id : "  cRST "%-36s " bSTG bV"\n", tmp);        
+    sprintf(tmp, "%d", afl->memlog_hits);                        
+    SAYF(bV bSTOP "        hits : "  cRST "%-36s " bSTG bV"\n", tmp);
+
+    switch(afl->memlog_type) {
+      
+      case HT_HOOK3: {
+        sprintf(tmp, "%s", "hook3(ptr, c, size)");
+        break;
+      }
+      case HT_HOOK4: {
+        sprintf(tmp, "%s", "hook4(dst, src, size)");
+        break;
+      }
+      case HT_HOOK5: {
+        sprintf(tmp, "%s", "hook5(size)");
+        break;
+      }
+       case HT_HOOK6: {
+        sprintf(tmp, "%s", "hook6(ptr)");
+        break;
+      }
+       case HT_HOOK7: {
+        sprintf(tmp, "%s", "hook7(ptr, size)");
+        break;
+      }
+       case HT_VARARG_HOOK1: {
+        sprintf(tmp, "%s", "GetElementPtr(ptr, idx1, idx2, ...)");
+        break;
+      }
+      default:
+        break;
+
+    }
+    //sprintf(tmp, "%d", afl->memlog_type);                        
+    SAYF(bV bSTOP "        type : "  cRST "%-36s " bSTG bV"\n", tmp);          
+    //sprintf(tmp, "%d", afl->memlog_op_type);                        
+    
+    switch(afl->memlog_op_type) {
+      case MEMLOG_DST: {
+        sprintf(tmp, "%s", "DST");
+        break;
+      }
+      case MEMLOG_SRC: {
+        sprintf(tmp, "%s", "SRC");
+        break;
+      }
+      case MEMLOG_SIZE: {
+        sprintf(tmp, "%s", "SIZE");
+        break;
+      }
+      case MEMLOG_VALUE: {
+        sprintf(tmp, "%s", "VAL");
+        break;
+      }
+      case MEMLOG_IDX: {
+        sprintf(tmp, "%s/%d/%d", "IDX", afl->memlog_idx, afl->memlog_idx_num);
+        break;
+      }
+      case MEMLOG_VA_SRC: {
+        sprintf(tmp, "%s", "GEP SRC");
+        break;
+      }
+      default:
+        break;
+    
+    }
+    
+    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV"\n", tmp);             
+    sprintf(tmp, "%llu", afl->memlog_val);   
+    SAYF(bV bSTOP "       value : "  cRST "%-36s " bSTG bV"\n", tmp);            
 
   }
 
