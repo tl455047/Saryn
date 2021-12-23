@@ -1213,10 +1213,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         inst_hit = 0;
         for (u32 l = 0; l < loggeds; l++) {
           
-          if (m_map->headers[k].id != 0) {
-            fprintf(stderr, "__afl_area_ptr is not null mapsize: %u fsvr mapsize: %u\n", m_map->headers[k].id, afl->fsrv.map_size);
-          }
-
           if (m_map->cksum[k][l] != afl->orig_mem_map->cksum[k][l]) continue;
 
           if (m_map->headers[k].type >= HT_GEP_HOOK) {
