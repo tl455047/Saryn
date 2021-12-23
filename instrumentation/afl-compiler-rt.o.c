@@ -2306,6 +2306,7 @@ void __afl_coverage_off() {
 
     __afl_area_ptr = __afl_area_ptr_dummy;
     __afl_cmp_map = NULL;
+    __afl_mem_map = NULL;
 
   }
 
@@ -2318,6 +2319,7 @@ void __afl_coverage_on() {
 
     __afl_area_ptr = __afl_area_ptr_backup;
     if (__afl_cmp_map_backup) { __afl_cmp_map = __afl_cmp_map_backup; }
+    if (__afl_mem_map_backup) { __afl_mem_map = __afl_mem_map_backup; }
 
   }
 
@@ -2330,7 +2332,8 @@ void __afl_coverage_discard() {
   __afl_area_ptr_backup[0] = 1;
 
   if (__afl_cmp_map) { memset(__afl_cmp_map, 0, sizeof(struct cmp_map)); }
-
+  if (__afl_mem_map) { memset(__afl_mem_map, 0, sizeof(struct mem_map)); }
+  
 }
 
 // discard the testcase

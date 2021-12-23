@@ -121,7 +121,7 @@ void __memlog_hook_debug(u32 id) {
   
   fprintf(stderr, "__memlog_hook_debug id: %u\n", id);
 
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -159,7 +159,7 @@ void __memlog_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type) {
   }*/
   #endif
   
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -215,7 +215,7 @@ void __memlog_hook2(u32 id, size_t value, u32 src_type, void* ptr,
   //fprintf(stderr, "__memlog_hook2 id: %u\n", id);
   #endif
   
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -252,7 +252,7 @@ void __memlog_hook2_int128(u32 id, uint128_t value, u32 src_type,
   (int64_t)value, src_type, ptr, rst_type);*/
   #endif
   
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -289,7 +289,7 @@ void __memlog_hook3(u32 id, void* ptr, int c, size_t size) {
   //  c, size);
   #endif
   
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -337,7 +337,7 @@ void __memlog_hook4(u32 id, void* dst, void* src, size_t size) {
   //  dst, src, size);
   #endif
   
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -384,7 +384,7 @@ void __memlog_hook5(u32 id, size_t size) {
  //fprintf(stderr, "__memlog_hook5: id: %u size: %llu\n", id, size);
   #endif
 
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -429,7 +429,7 @@ void __memlog_hook6(u32 id, void* ptr) {
   //fprintf(stderr, "__memlog_hook6: id: %u ptr: %p\n", id, ptr);
   #endif
 
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if(!__afl_mem_map->headers[id].type) {
@@ -469,7 +469,7 @@ void __memlog_hook7(u32 id, void* ptr, size_t size) {
   //fprintf(stderr, "__memlog_hook7: id: %u ptr: %p size: %llu\n", id, ptr, size);
   #endif
 
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -538,7 +538,7 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
  
   #endif
 
-  if (unlikely(!__afl_mem_map) || id >= MEM_MAP_W) return;
+  if (unlikely(!__afl_mem_map)) return;
 
   unsigned hits;
   if (!__afl_mem_map->headers[id].type) {
@@ -552,6 +552,8 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
 
     // used for hash calculating
     __afl_mem_map->hits[id] = 1;
+
+    //__afl_mem_map->headers[id].id = 9487;
 
   }
   else {

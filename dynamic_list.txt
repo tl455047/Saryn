@@ -53,4 +53,10 @@
   "__sanitizer_cov_trace_pc_guard";
   "__sanitizer_cov_trace_pc_guard_init";
   "__sanitizer_cov_trace_switch";
+  "__memlog_hook3";
+  "__memlog_hook4";
+  "__memlog_hook5";
+  "__memlog_hook6";
+  "__memlog_hook7";
+  "__memlog_va_arg_hook1";
 };

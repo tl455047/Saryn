@@ -312,7 +312,7 @@ bool MemlogPass::runOnModule(Module &M) {
     }
 
     errs() << "\x1b[0;36mMemlog Instrumentation\x1b[0m start ID: \x1b[0;36m" << HookID << "\x1b[0m\n";
-    errs() << "[+] Instrumented \x1b[0;36m"<< HookID % MemlogMapW - OrigHookID << "\x1b[0m locations\n";
+    errs() << "[+] Instrumented \x1b[0;36m"<< HookID - OrigHookID << "\x1b[0m locations\n";
     std::fstream OutFile;
     OutFile.open(HookIDFileName, std::ios::out | std::ios::trunc);
     OutFile << HookID % MemlogMapW;

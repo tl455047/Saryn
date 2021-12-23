@@ -57,6 +57,7 @@ static u8 * lto_flag = AFL_CLANG_FLTO, *argvnull;
 static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
+static u8   memlog_mode;
 u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
@@ -658,6 +659,40 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       }
 
+    }
+
+     if (memlog_mode) {
+
+      if (lto_mode && !have_c) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/memlog-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-pass.so", obj_path);
+
+      }
+
+
+      cc_params[cc_par_cnt++] = "-mllvm";
+      cc_params[cc_par_cnt++] = "-memlog-hook-inst=1";
+          
+      cc_params[cc_par_cnt++] = "-mllvm";
+      cc_params[cc_par_cnt++] = 
+            alloc_printf("-memlog-hook-abilist=%s/hook_abilist.txt", obj_path);
+
+      if (!shared_linking && !partial_linking)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-rt.o", obj_path);
+      if (lto_mode)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-rt-lto.o", obj_path);
+    
     }
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";
@@ -2090,6 +2125,10 @@ int main(int argc, char **argv, char **envp) {
   cmplog_mode = getenv("AFL_CMPLOG") || getenv("AFL_LLVM_CMPLOG");
   if (!be_quiet && cmplog_mode)
     printf("CmpLog mode by <andreafioraldi@gmail.com>\n");
+
+  memlog_mode = getenv("AFL_MEMLOG") || getenv("AFL_LLVM_MEMLOG");
+  if (!be_quiet && memlog_mode)
+    printf("MemLog mode\n");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);
