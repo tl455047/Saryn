@@ -1291,7 +1291,7 @@ void show_stats(afl_state_t *afl) {
         sprintf(tmp, "%s", "hook7(ptr, size)");
         break;
       }
-       case HT_VARARG_HOOK1: {
+       case HT_GEP_HOOK: {
         sprintf(tmp, "%s", "GetElementPtr(ptr, idx1, idx2, ...)");
         break;
       }

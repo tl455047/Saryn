@@ -53,6 +53,9 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
+  // Reset memlog bitmap before each execution.
+  memset(afl->shm.mem_map, 0, sizeof(struct mem_map));
+
   fault = fuzz_run_target(afl, &afl->memlog_fsrv, afl->fsrv.exec_tmout);
 
   if (afl->stop_soon) { return 1; }
@@ -85,7 +88,7 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
+  //afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
 
   if (!(afl->stage_cur % afl->stats_update_freq) ||
       afl->stage_cur + 1 == afl->stage_max) {
@@ -114,7 +117,7 @@ void __memlog_debug_output(afl_state_t *afl) {
       afl->shm.mem_map->headers[i].type);
     
     switch(afl->shm.mem_map->headers[i].type) {
-       case HT_VARARG_HOOK1:
+       case HT_GEP_HOOK:
         fprintf(stderr, "hook va arg log: num: %u ptr: %p\n",
           afl->shm.mem_map->log[i][0].__hook_va_arg.num,
           afl->shm.mem_map->log[i][0].__hook_va_arg.ptr);
@@ -863,7 +866,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   // check unstable
   // disable unstable inst. even if is same input
-  memset(afl->shm.mem_map, 0, sizeof(struct mem_map));
   if (unlikely(common_fuzz_memlog_stuff(afl, orig_buf, len))) {
 
     return 1;
@@ -872,7 +874,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   
   memcpy(afl->orig_mem_map, afl->shm.mem_map, sizeof(struct mem_map));
   
-  memset(afl->shm.mem_map, 0, sizeof(struct mem_map));
   if (unlikely(common_fuzz_memlog_stuff(afl, orig_buf, len))) {
 
     return 1;
@@ -897,7 +898,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       
     for(u32 j = 0; j < MEM_MAP_H; j++) {
 
-      if (m_map->headers[i].type >= HT_VARARG_HOOK1) {
+      if (m_map->headers[i].type >= HT_GEP_HOOK) {
           
         va_o = &m_map->log[i][j].__hook_va_arg;
         orig_va_o = &afl->orig_mem_map->log[i][j].__hook_va_arg;
@@ -967,7 +968,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
           break;
 
         }
-        case HT_VARARG_HOOK1: {
+        case HT_GEP_HOOK: {
           
           if (va_o->ptr != orig_va_o->ptr) {
             
@@ -1016,7 +1017,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   if (unlikely(colorization(afl, buf, len, &taints))) { return 1; }
   
   // execute
-  memset(m_map, 0, sizeof(struct mem_map));
   if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) {
 
     return 1;
@@ -1049,7 +1049,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       inst_hit = 0;
       for (u32 l = 0; l < loggeds; l++) {
       
-        if (m_map->headers[k].type >= HT_VARARG_HOOK1) {
+        if (m_map->headers[k].type >= HT_GEP_HOOK) {
         
           va_o = &m_map->log[k][l].__hook_va_arg;
           orig_va_o = &afl->orig_mem_map->log[k][l].__hook_va_arg;
@@ -1109,20 +1109,20 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
             break;
 
           }
-          case HT_VARARG_HOOK1: {
+          case HT_GEP_HOOK: {
             
             for (u32 idx = 0; idx < va_o->num; idx++) {
 
               if (va_o->idx[idx] != orig_va_o->idx[idx]) {
 
-                update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_IDX, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_IDX, &input_tainted, &inst_hit);
               
               }
 
             }
 
             if (va_o->ptr != orig_va_o->ptr) 
-              update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
   
             break;
           }
@@ -1196,7 +1196,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       }*/
 
       // execute
-      memset(m_map, 0, sizeof(struct mem_map));
       if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
 
     
@@ -1214,9 +1213,13 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         inst_hit = 0;
         for (u32 l = 0; l < loggeds; l++) {
           
+          if (m_map->headers[k].id != 0) {
+            fprintf(stderr, "__afl_area_ptr is not null mapsize: %u fsvr mapsize: %u\n", m_map->headers[k].id, afl->fsrv.map_size);
+          }
+
           if (m_map->cksum[k][l] != afl->orig_mem_map->cksum[k][l]) continue;
 
-          if (m_map->headers[k].type >= HT_VARARG_HOOK1) {
+          if (m_map->headers[k].type >= HT_GEP_HOOK) {
           
             va_o = &m_map->log[k][l].__hook_va_arg;
             orig_va_o = &afl->orig_mem_map->log[k][l].__hook_va_arg;
@@ -1276,20 +1279,20 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
               break;
 
             }
-            case HT_VARARG_HOOK1: {
+            case HT_GEP_HOOK: {
               
               for (u32 idx = 0; idx < va_o->num; idx++) {
 
                 if (va_o->idx[idx] != orig_va_o->idx[idx]) {
 
-                  update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_IDX, &input_tainted, &inst_hit);
+                  update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_IDX, &input_tainted, &inst_hit);
                 
                 }
 
               }
 
               if (va_o->ptr != orig_va_o->ptr) 
-                update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
     
               break;
             }
@@ -1354,7 +1357,6 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       }
       
       // execute
-      memset(m_map, 0, sizeof(struct mem_map));
       if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
 
       for (u32 k = 0; k < MEM_MAP_W; k++) {
@@ -1370,7 +1372,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         inst_hit = 0;
         for (u32 l = 0; l < loggeds; l++) {
         
-          if (m_map->headers[k].type >= HT_VARARG_HOOK1) {
+          if (m_map->headers[k].type >= HT_GEP_HOOK) {
           
             va_o = &m_map->log[k][l].__hook_va_arg;
             orig_va_o = &afl->orig_mem_map->log[k][l].__hook_va_arg;
@@ -1430,20 +1432,20 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
               break;
 
             }
-            case HT_VARARG_HOOK1: {
+            case HT_GEP_HOOK: {
               
               for (u32 idx = 0; idx < va_o->num; idx++) {
 
                 if (va_o->idx[idx] != orig_va_o->idx[idx]) {
 
-                  update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_IDX, &input_tainted, &inst_hit);
+                  update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_IDX, &input_tainted, &inst_hit);
                 
                 }
 
               }
 
               if (va_o->ptr != orig_va_o->ptr) 
-                update_colorized(afl, i, j, k, l, HT_VARARG_HOOK1, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_GEP_HOOK, MEMLOG_VA_SRC, &input_tainted, &inst_hit);
     
               break;
             }

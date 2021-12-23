@@ -1981,7 +1981,7 @@ int main(int argc, char **argv_orig, char **envp) {
     }
 
     OKF("Memlog forkserver successfully started");
-
+  
   }
 
   load_auto(afl);
@@ -2323,7 +2323,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
       }
-
+      
       skipped_fuzz = fuzz_one(afl);
 
       if (unlikely(!afl->stop_soon && exit_1)) { afl->stop_soon = 2; }

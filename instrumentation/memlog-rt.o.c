@@ -9,15 +9,29 @@
 #include "xxhash.h"
 #undef XXH_INLINE_ALL
 
+#ifdef _DEBUG
 u64 hash64(u8 *key, u32 len, u64 seed) {
 
-  return XXH64(key, len, seed);
+#else
+inline u64 hash64(u8 *key, u32 len, u64 seed) {
+
+#endif
+
+  (void)seed;
+  return XXH3_64bits(key, len);
 
 }
 
 typedef unsigned __int128 uint128_t;
 
 extern struct mem_map *__afl_mem_map;
+extern u8 *__afl_area_ptr;
+// memlog map size not real target mapsize, but this is enough
+extern u32 __afl_map_size;
+
+// use for cksum calculating
+u8 *__afl_cksum_map;
+u32 __cksum_map_size;
 /**
  * Call hook.
  * __memlog_hook1 (unsigned id, void* ptr, unsigned src_type, unsigned rst_type);
@@ -36,7 +50,7 @@ extern struct mem_map *__afl_mem_map;
  * ex. free
  * __memlog_hook7 (unsigned id, void* ptr, size_t size);
  * ex. realloc
- * __memlog_va_arg_hook1 (unsigned id, void* ptr, unsigned src_type, 
+ * __memlog_get_element_ptr_hook (unsigned id, void* ptr, unsigned src_type, 
  * unsigned rst_type, unsigned num_of_idx, ...);
  * ex. get_element_ptr inst.
  * 
@@ -45,7 +59,7 @@ extern struct mem_map *__afl_mem_map;
 
 void __memlog_debug_output() {
   
-  struct hook_va_arg_operand *__hook_va_arg;
+  /*struct hook_va_arg_operand *__hook_va_arg;
   for (int i = 0; i < MEM_MAP_W; i++) {
     
     if (!__afl_mem_map->headers[i].hits) continue;
@@ -54,8 +68,8 @@ void __memlog_debug_output() {
       i, 
       __afl_mem_map->headers[i].hits,
       __afl_mem_map->headers[i].type);
-    /*switch (__afl_mem_map->headers[i].type) {
-      case HT_VARARG_HOOK1:
+    switch (__afl_mem_map->headers[i].type) {
+      case HT_GEP_HOOK:
           
         fprintf(stderr, "header: id: %u hits: %u type: %u\n", 
           i, 
@@ -83,39 +97,37 @@ void __memlog_debug_output() {
       }
       default:
         break;
-    }*/
+    }
 
-  }
+  }*/
 
 }
 
 __attribute__((constructor)) 
 void __memlog_debug_init() {
       
-  fprintf(stderr, "__memlog_debug_init\n");
+  /*fprintf(stderr, "__memlog_debug_init\n");
 
   if(!__afl_mem_map) {
       __afl_mem_map = (struct mem_map *)malloc(sizeof(struct mem_map));
     memset(__afl_mem_map, 0, sizeof(struct mem_map));
-  }
+  }*/
 
 }
 
 __attribute__((destructor)) 
 void __memlog_debug_fini() {
 
-  fprintf(stderr, "__memlog_debug_fini\n");
+  /*fprintf(stderr, "__memlog_debug_fini\n");
   if (__afl_mem_map) 
     __memlog_debug_output();
   
   if(__afl_mem_map && !getenv(MEMLOG_SHM_ENV_VAR)) {
     free(__afl_mem_map);
     __afl_mem_map = NULL;
-  }
+  }*/
 
 }
-
-#endif
 
 void __memlog_hook_debug(u32 id) {
   
@@ -128,7 +140,7 @@ void __memlog_hook_debug(u32 id) {
     
     hits = 0;
     __afl_mem_map->headers[id].hits = 1;
-    __afl_mem_map->headers[id].type = HT_VARARG_HOOK1;
+    __afl_mem_map->headers[id].type = HT_GEP_HOOK;
     
   }
   else {
@@ -137,7 +149,28 @@ void __memlog_hook_debug(u32 id) {
   
   }
 }
+#endif
 
+
+__attribute((constructor(4)))
+void __memlog_set_cksum_map() {
+
+  if (__afl_map_size < MEM_MAP_W) {
+    // seems the map size is smaller
+    // we can use afl bitmap to calculate control flow cksum
+    __afl_cksum_map = __afl_area_ptr;
+    __cksum_map_size = __afl_map_size;
+
+  }
+  else {
+    // size of afl bitmap is larger than memlog map size
+    // let's use memlog map to calculate control flow cksum
+    __afl_cksum_map = __afl_mem_map->hits;
+    __cksum_map_size = MEM_MAP_W;
+
+  }
+
+}
 /**
  * ex. load inst.
  */
@@ -282,11 +315,11 @@ void __memlog_hook2_int128(u32 id, uint128_t value, u32 src_type,
  * ex. memset
  */
 __attribute__((visibility("default")))
-void __memlog_hook3(u32 id, void* ptr, int c, size_t size) {
+void __memlog_hook3(u32 id, void* ptr, int c, u64 size) {
   
   #ifdef MEMLOG_DEBUG
-  //fprintf(stderr, "__memlog_hook3: id: %u ptr: %p c: %u size: %llu\n", id, ptr, 
-  //  c, size);
+  fprintf(stderr, "__memlog_hook3: id: %u ptr: %p c: %u size: %llu\n", id, ptr, 
+    c, size);
   #endif
   
   if (unlikely(!__afl_mem_map)) return;
@@ -316,9 +349,9 @@ void __memlog_hook3(u32 id, void* ptr, int c, size_t size) {
   
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.dst = ptr;
   __afl_mem_map->log[id][hits].__hook_op.value = c;
@@ -330,11 +363,11 @@ void __memlog_hook3(u32 id, void* ptr, int c, size_t size) {
  * ex. memcpy
  */
 __attribute__((visibility("default")))
-void __memlog_hook4(u32 id, void* dst, void* src, size_t size) {
+void __memlog_hook4(u32 id, void* dst, void* src, u64 size) {
   
   #ifdef MEMLOG_DEBUG
-  //fprintf(stderr, "__memlog_hook4: id: %u dst: %p src: %p size: %llu\n", id, 
-  //  dst, src, size);
+  fprintf(stderr, "__memlog_hook4: id: %u dst: %p src: %p size: %llu\n", id, 
+    dst, src, size);
   #endif
   
   if (unlikely(!__afl_mem_map)) return;
@@ -364,9 +397,9 @@ void __memlog_hook4(u32 id, void* dst, void* src, size_t size) {
 
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.dst = dst;
   __afl_mem_map->log[id][hits].__hook_op.src = src;
@@ -378,10 +411,10 @@ void __memlog_hook4(u32 id, void* dst, void* src, size_t size) {
  * ex. malloc
  */
 __attribute__((visibility("default")))
-void __memlog_hook5(u32 id, size_t size) {
+void __memlog_hook5(u32 id, u64 size) {
 
   #ifdef MEMLOG_DEBUG
- //fprintf(stderr, "__memlog_hook5: id: %u size: %llu\n", id, size);
+  fprintf(stderr, "__memlog_hook5: id: %u size: %llu\n", id, size);
   #endif
 
   if (unlikely(!__afl_mem_map)) return;
@@ -411,9 +444,9 @@ void __memlog_hook5(u32 id, size_t size) {
 
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.size = size;
   
@@ -426,7 +459,7 @@ __attribute__((visibility("default")))
 void __memlog_hook6(u32 id, void* ptr) {
   
   #ifdef MEMLOG_DEBUG
-  //fprintf(stderr, "__memlog_hook6: id: %u ptr: %p\n", id, ptr);
+  fprintf(stderr, "__memlog_hook6: id: %u ptr: %p\n", id, ptr);
   #endif
 
   if (unlikely(!__afl_mem_map)) return;
@@ -451,9 +484,9 @@ void __memlog_hook6(u32 id, void* ptr) {
 
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.src = ptr;
 
@@ -463,10 +496,10 @@ void __memlog_hook6(u32 id, void* ptr) {
  * ex. realloc
  */
 __attribute__((visibility("default")))
-void __memlog_hook7(u32 id, void* ptr, size_t size) {
+void __memlog_hook7(u32 id, void* ptr, u64 size) {
   
   #ifdef MEMLOG_DEBUG
-  //fprintf(stderr, "__memlog_hook7: id: %u ptr: %p size: %llu\n", id, ptr, size);
+  fprintf(stderr, "__memlog_hook7: id: %u ptr: %p size: %llu\n", id, ptr, size);
   #endif
 
   if (unlikely(!__afl_mem_map)) return;
@@ -495,9 +528,9 @@ void __memlog_hook7(u32 id, void* ptr, size_t size) {
 
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.src = ptr;
   __afl_mem_map->log[id][hits].__hook_op.size = size;
@@ -508,33 +541,28 @@ void __memlog_hook7(u32 id, void* ptr, size_t size) {
  * ex. get_element_ptr inst.
  */
 __attribute__((visibility("default")))
-void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type, 
+void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 src_type, u32 rst_type, 
   u32 num_of_idx, ...) {
   //deal with vararg
   va_list args;
-  int size, logged;
+  u32 logged;
   struct hook_va_arg_operand *__hook_va_arg;
   #ifdef MEMLOG_DEBUG
-  /*if (num_of_idx > MEMLOG_MAXiMUM_IDX_NUM)
-    logged = MEMLOG_MAXiMUM_IDX_NUM;
+  if (num_of_idx > MEM_MAP_MAX_IDX)
+    logged = MEM_MAP_MAX_IDX;
   else
     logged = num_of_idx;
 
-  fprintf(stderr, "__memlog_vararg_hook1: id: %u src_type: %u\
+  fprintf(stderr, "__memlog_get_element_ptr_hook: id: %u src_type: %u\
     rst_type: %u num: %u ", id, src_type, rst_type, num_of_idx);
-    va_start(args, num_of_idx);
-
+  
+  va_start(args, num_of_idx);
   for(int j = 0; j < logged; j++) {
-    size = va_arg(args, int);
-    //fprintf(stderr, "type: %d ", size);
-    if (size <= sizeof(int))
-      fprintf(stderr, "idx %u ", va_arg(args, int));
-    else if (size == sizeof(long long))
-      fprintf(stderr, "idx: %llu ", va_arg(args, long long));
+    
+    fprintf(stderr, "idx: %llu ", va_arg(args, u64));
 
   }fprintf(stderr, "\n");
-
-  va_end(args);*/
+  va_end(args);
  
   #endif
 
@@ -545,7 +573,7 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
     
     hits = 0;
     __afl_mem_map->headers[id].hits = 1;
-    __afl_mem_map->headers[id].type = HT_VARARG_HOOK1;
+    __afl_mem_map->headers[id].type = HT_GEP_HOOK;
 
     __afl_mem_map->headers[id].src_shape = src_type;
     __afl_mem_map->headers[id].rst_shape = rst_type;
@@ -553,7 +581,10 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
     // used for hash calculating
     __afl_mem_map->hits[id] = 1;
 
-    //__afl_mem_map->headers[id].id = 9487;
+    if (!__afl_area_ptr)    
+      __afl_mem_map->headers[id].id = 0;
+    else
+    __afl_mem_map->headers[id].id = __afl_map_size;
 
   }
   else {
@@ -567,9 +598,9 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
   
   hits &= MEM_MAP_H - 1;
 
-  // calculate current memlog ma headers hashs
+  // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_mem_map->hits, MEM_MAP_W, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
 
   if (num_of_idx > MEM_MAP_MAX_IDX)
     logged = MEM_MAP_MAX_IDX;
@@ -583,12 +614,7 @@ void __memlog_va_arg_hook1(u32 id, void* ptr, u32 src_type, u32 rst_type,
   va_start(args, num_of_idx);
   for(int i = 0; i < logged; i++) {
     
-    size = (unsigned)va_arg(args, int);
-    
-    if (size <= sizeof(int))
-      __hook_va_arg->idx[i] = va_arg(args, int);
-    else if (size <= sizeof(long long))
-      __hook_va_arg->idx[i] = va_arg(args, long long);
+    __hook_va_arg->idx[i] = va_arg(args, u64);
     
   }
   va_end(args);

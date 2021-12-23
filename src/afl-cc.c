@@ -549,6 +549,36 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
     }
 
+    if (memlog_mode) {
+
+      if (lto_mode && !have_c) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/memlog-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-pass.so", obj_path);
+
+      }
+
+      cc_params[cc_par_cnt++] = "-mllvm";
+      cc_params[cc_par_cnt++] = 
+            alloc_printf("-memlog-hook-abilist=%s/hook_abilist.txt", obj_path);
+
+      if (!shared_linking && !partial_linking)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-rt.o", obj_path);
+      if (lto_mode)
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/memlog-rt-lto.o", obj_path);
+    
+    }
+    
 #if LLVM_MAJOR >= 13
     // fuck you llvm 13
     cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
@@ -659,40 +689,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
       }
 
-    }
-
-     if (memlog_mode) {
-
-      if (lto_mode && !have_c) {
-
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/memlog-pass.so", obj_path);
-
-      } else {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/memlog-pass.so", obj_path);
-
-      }
-
-
-      cc_params[cc_par_cnt++] = "-mllvm";
-      cc_params[cc_par_cnt++] = "-memlog-hook-inst=1";
-          
-      cc_params[cc_par_cnt++] = "-mllvm";
-      cc_params[cc_par_cnt++] = 
-            alloc_printf("-memlog-hook-abilist=%s/hook_abilist.txt", obj_path);
-
-      if (!shared_linking && !partial_linking)
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/memlog-rt.o", obj_path);
-      if (lto_mode)
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/memlog-rt-lto.o", obj_path);
-    
     }
 
     // cc_params[cc_par_cnt++] = "-Qunused-arguments";

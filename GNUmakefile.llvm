@@ -436,8 +436,8 @@ endif
 afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/afl-llvm-common.o | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
-./memlog-pass.so:	instrumentation/memlog-pass.cc instrumentation/afl-llvm-common.o | test_deps
-	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
+./memlog-pass.so:	instrumentation/memlog-pass.cc | test_deps
+	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) 
 
 .PHONY: document
 document:
@@ -449,7 +449,11 @@ document:
 	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
 
 ./memlog-rt.o: instrumentation/memlog-rt.o.c
+ifeq "$(MEMLOG_DEBUG)" "1"
+	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -DMEMLOG_DEBUG -Wno-unused-result -fPIC -c $< -o $@
+else
 	$(CC) $(CLANG_CFL) $(CFLAGS_SAFE) $(CPPFLAGS) -O3 -Wno-unused-result -fPIC -c $< -o $@
+endif
 
 ./afl-compiler-rt-32.o: instrumentation/afl-compiler-rt.o.c
 	@printf "[*] Building 32-bit variant of the runtime (-m32)... "
