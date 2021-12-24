@@ -13,7 +13,7 @@
 u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #else
-inline u64 hash64(u8 *key, u32 len, u64 seed) {
+static inline u64 hash64(u8 *key, u32 len, u64 seed) {
 
 #endif
 
@@ -30,8 +30,8 @@ extern u8 *__afl_area_ptr;
 extern u32 __afl_map_size;
 
 // use for cksum calculating
-u8 *__afl_cksum_map;
-u32 __cksum_map_size;
+u8 *__memlog_cksum_map;
+u32 __memlog_cksum_map_size;
 /**
  * Call hook.
  * __memlog_hook1 (unsigned id, void* ptr, unsigned src_type, unsigned rst_type);
@@ -155,18 +155,20 @@ void __memlog_hook_debug(u32 id) {
 __attribute((constructor(4)))
 void __memlog_set_cksum_map() {
 
+  if (unlikely(!__afl_mem_map)) return;
+
   if (__afl_map_size < MEM_MAP_W) {
     // seems the map size is smaller
     // we can use afl bitmap to calculate control flow cksum
-    __afl_cksum_map = __afl_area_ptr;
-    __cksum_map_size = __afl_map_size;
+    __memlog_cksum_map = __afl_area_ptr;
+    __memlog_cksum_map_size = __afl_map_size;
 
   }
   else {
     // size of afl bitmap is larger than memlog map size
     // let's use memlog map to calculate control flow cksum
-    __afl_cksum_map = __afl_mem_map->hits;
-    __cksum_map_size = MEM_MAP_W;
+    __memlog_cksum_map = __afl_mem_map->hits;
+    __memlog_cksum_map_size = MEM_MAP_W;
 
   }
 
@@ -351,7 +353,7 @@ void __memlog_hook3(u32 id, void* ptr, int c, u64 size) {
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.dst = ptr;
   __afl_mem_map->log[id][hits].__hook_op.value = c;
@@ -399,7 +401,7 @@ void __memlog_hook4(u32 id, void* dst, void* src, u64 size) {
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.dst = dst;
   __afl_mem_map->log[id][hits].__hook_op.src = src;
@@ -446,7 +448,7 @@ void __memlog_hook5(u32 id, u64 size) {
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.size = size;
   
@@ -486,7 +488,7 @@ void __memlog_hook6(u32 id, void* ptr) {
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.src = ptr;
 
@@ -530,7 +532,7 @@ void __memlog_hook7(u32 id, void* ptr, u64 size) {
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   __afl_mem_map->log[id][hits].__hook_op.src = ptr;
   __afl_mem_map->log[id][hits].__hook_op.size = size;
@@ -581,11 +583,6 @@ void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 src_type, u32 rst_type
     // used for hash calculating
     __afl_mem_map->hits[id] = 1;
 
-    if (!__afl_area_ptr)    
-      __afl_mem_map->headers[id].id = 0;
-    else
-    __afl_mem_map->headers[id].id = __afl_map_size;
-
   }
   else {
     
@@ -600,7 +597,7 @@ void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 src_type, u32 rst_type
 
   // calculate current memlog map header hash
   // can be used to distinguish different path
-  __afl_mem_map->cksum[id][hits] = hash64((void *)__afl_cksum_map, __cksum_map_size, HASH_CONST);
+  __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
   if (num_of_idx > MEM_MAP_MAX_IDX)
     logged = MEM_MAP_MAX_IDX;
