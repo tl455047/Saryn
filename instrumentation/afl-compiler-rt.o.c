@@ -126,6 +126,22 @@ struct cmp_map *__afl_cmp_map_backup;
 struct mem_map *__afl_mem_map;
 struct mem_map *__afl_mem_map_backup;
 
+u8             *__cmplog_cksum_map;
+u32             __cmplog_cksum_map_size;
+
+#ifdef _DEBUG
+u64 hash64(u8 *key, u32 len, u64 seed) {
+
+#else
+static inline u64 hash64(u8 *key, u32 len, u64 seed) {
+
+#endif
+
+  (void)seed;
+  return XXH3_64bits(key, len);
+
+}
+
 /* Child pid? */
 
 static s32 child_pid;
@@ -1605,6 +1621,27 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 
 }
 
+__attribute((constructor(4)))
+void __cmplog_set_cksum_map() {
+
+  if (unlikely(!__afl_cmp_map)) return;
+
+  if (__afl_map_size < CMP_MAP_W) {
+    // seems the map size is smaller
+    // we can use afl bitmap to calculate control flow cksum
+    __cmplog_cksum_map = __afl_area_ptr;
+    __cmplog_cksum_map_size = __afl_map_size;
+
+  }
+  else {
+    // size of afl bitmap is larger than memlog map size
+    // let's use memlog map to calculate control flow cksum
+    __cmplog_cksum_map = __afl_cmp_map->hits;
+    __cmplog_cksum_map_size = CMP_MAP_W;
+
+  }
+
+}
 ///// CmpLog instrumentation
 
 void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
@@ -1626,9 +1663,13 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 0;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
+
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -1637,6 +1678,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
 
 }
 
@@ -1656,6 +1699,8 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 1;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -1666,6 +1711,8 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
     }
 
+    __afl_cmp_map->hits[k]++;
+    
   }
 
   __afl_cmp_map->headers[k].attribute = attr;
@@ -1674,6 +1721,8 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
 
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
 }
 
 void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
@@ -1694,6 +1743,8 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 3;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -1704,6 +1755,8 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
     }
 
+    __afl_cmp_map->hits[k]++;
+
   }
 
   __afl_cmp_map->headers[k].attribute = attr;
@@ -1712,6 +1765,8 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
 
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
 }
 
 void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
@@ -1732,6 +1787,8 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 7;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -1742,6 +1799,8 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
     }
 
+    __afl_cmp_map->hits[k]++;
+
   }
 
   __afl_cmp_map->headers[k].attribute = attr;
@@ -1749,6 +1808,9 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
   hits &= CMP_MAP_H - 1;
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
+
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
 
 }
 
@@ -1775,6 +1837,8 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = size;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -1784,6 +1848,8 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
       __afl_cmp_map->headers[k].shape = size;
 
     }
+
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -1800,6 +1866,8 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 
   }
 
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
 }
 
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
@@ -1818,6 +1886,8 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 15;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -1827,6 +1897,8 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
       __afl_cmp_map->headers[k].shape = 15;
 
     }
+
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -1838,6 +1910,8 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
   __afl_cmp_map->log[k][hits].v0_128 = (u64)(arg1 >> 64);
   __afl_cmp_map->log[k][hits].v1_128 = (u64)(arg2 >> 64);
 
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
 }
 
 #endif
@@ -1924,6 +1998,8 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
       __afl_cmp_map->headers[k].hits = 1;
       __afl_cmp_map->headers[k].shape = 7;
 
+      __afl_cmp_map->hits[k] = 1;
+
     } else {
 
       hits = __afl_cmp_map->headers[k].hits++;
@@ -1934,6 +2010,8 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
       }
 
+      __afl_cmp_map->hits[k]++;
+
     }
 
     __afl_cmp_map->headers[k].attribute = 1;
@@ -1942,8 +2020,10 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
     __afl_cmp_map->log[k][hits].v0 = val;
     __afl_cmp_map->log[k][hits].v1 = cases[i + 2];
 
+    __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
+  
   }
-
+  
 }
 
 __attribute__((weak)) void *__asan_region_is_poisoned(void *beg, size_t size) {
@@ -2017,6 +2097,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
     __afl_cmp_map->headers[k].shape = l - 1;
     hits = 0;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -2026,6 +2108,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
       __afl_cmp_map->headers[k].shape = l - 1;
 
     }
+
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -2037,6 +2121,8 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
   // fprintf(stderr, "RTN3\n");
+
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
 
 }
 
@@ -2063,6 +2149,8 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
     __afl_cmp_map->headers[k].shape = l - 1;
     hits = 0;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -2072,6 +2160,8 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
       __afl_cmp_map->headers[k].shape = l - 1;
 
     }
+
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -2083,6 +2173,8 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len1);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len2);
   // fprintf(stderr, "RTN3\n");
+
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
 
 }
 
@@ -2122,6 +2214,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
     __afl_cmp_map->headers[k].shape = len - 1;
     hits = 0;
 
+    __afl_cmp_map->hits[k] = 1;
+
   } else {
 
     hits = __afl_cmp_map->headers[k].hits++;
@@ -2131,6 +2225,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
       __afl_cmp_map->headers[k].shape = len - 1;
 
     }
+    
+    __afl_cmp_map->hits[k]++;
 
   }
 
@@ -2142,6 +2238,8 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
   __builtin_memcpy(cmpfn[hits].v0, ptr1, len);
   __builtin_memcpy(cmpfn[hits].v1, ptr2, len);
   // fprintf(stderr, "RTN3\n");
+
+  __afl_cmp_map->cksum[k][hits] = hash64((void *)__cmplog_cksum_map, __cmplog_cksum_map_size, HASH_CONST);
 
 }
 
