@@ -236,7 +236,8 @@ enum {
   /* 18 */ STAGE_CUSTOM_MUTATOR,
   /* 19 */ STAGE_COLORIZATION,
   /* 20 */ STAGE_ITS,
-
+  /* 21 */ STAGE_ITS_PLUS,
+  
   STAGE_NUM_MAX
 
 };

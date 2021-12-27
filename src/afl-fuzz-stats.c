@@ -1078,6 +1078,10 @@ void show_stats(afl_state_t *afl) {
     strcat(tmp, u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS]));
     strcat(tmp, "/");
     strcat(tmp, u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
+    strcat(tmp, ", ");
+    strcat(tmp, u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS_PLUS]));
+    strcat(tmp, "/");
+    strcat(tmp, u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS_PLUS]));
 
   } else {
 

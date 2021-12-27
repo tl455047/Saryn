@@ -1040,7 +1040,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       afl->stage_cur = k;
       // check unstable
       // different path
-      loggeds = MIN(m_map->headers[k].hits, afl->orig_mem_map->headers[k].hits);
+      loggeds = MIN((u32)(m_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
       if (!loggeds) continue;
     
       if (loggeds > MEM_MAP_H) 
@@ -1204,7 +1204,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         
         // check unstable
         // different path
-        loggeds = MIN(m_map->headers[k].hits, afl->orig_mem_map->headers[k].hits);
+        loggeds = MIN((u32)(m_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
         if (!loggeds) continue;
       
         if (loggeds > MEM_MAP_H) 
@@ -1359,7 +1359,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
         
         // check unstable
         // different path
-        loggeds = MIN(m_map->headers[k].hits, afl->orig_mem_map->headers[k].hits);
+        loggeds = MIN((u32)(m_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
         if (!loggeds) continue;
       
         if (loggeds > MEM_MAP_H) 

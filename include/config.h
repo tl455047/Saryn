@@ -69,7 +69,7 @@
 #define CMPLOG_POSITIONS_MAX (12 * 1024)
 
 /* Maximum allowed fails per CMP value. Default: 128 */
-#define CMPLOG_FAIL_MAX 96
+#define CMPLOG_FAIL_MAX 96 * 2
 
 /* -------------------------------------*/
 /* Now non-cmplog configuration options */
