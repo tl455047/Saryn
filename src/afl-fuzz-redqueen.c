@@ -1900,13 +1900,17 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
+  
+    if (!found_one && afl->pass_stats[key].faileds < 0xff) {
 
-    afl->pass_stats[key].faileds++;
+      afl->pass_stats[key].faileds++;
 
+    }
+
+    if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
+  
   }
-
-  if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
 
   return 0;
 
@@ -2583,15 +2587,19 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
+    
+    if (!found_one && afl->pass_stats[key].faileds < 0xff) {
 
-    afl->pass_stats[key].faileds++;
+      afl->pass_stats[key].faileds++;
 
+    }
+
+    if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
+    
   }
 
-  if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
-
-  return 0;
+  return 0; 
 
 }
 
@@ -2845,6 +2853,60 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
   }
+
+
+#ifdef CMPLOG_COMBINE
+  if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
+
+    // copy the current virgin bits so we can recover the information
+    u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
+    memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
+    // reset virgin bits to the backup previous to redqueen
+    memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
+
+    u8 status = 0;
+    its_fuzz(afl, cbuf, len, &status);
+
+  // now combine with the saved virgin bits
+  #ifdef WORD_SIZE_64
+    u64 *v = (u64 *)afl->virgin_bits;
+    u64 *s = (u64 *)virgin_save;
+    u32  i;
+    for (i = 0; i < (afl->shm.map_size >> 3); i++) {
+
+      v[i] &= s[i];
+
+    }
+
+  #else
+    u32 *v = (u32 *)afl->virgin_bits;
+    u32 *s = (u32 *)virgin_save;
+    u32  i;
+    for (i = 0; i < (afl->shm.map_size >> 2); i++) {
+
+      v[i] &= s[i];
+
+    }
+
+  #endif
+
+  #ifdef _DEBUG
+    dump("COMB", cbuf, len);
+    if (status == 1) {
+
+      fprintf(stderr, "NEW CMPLOG_COMBINED\n");
+
+    } else {
+
+      fprintf(stderr, "NO new combined\n");
+
+    }
+
+  #endif
+
+  }
+
+#endif
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
