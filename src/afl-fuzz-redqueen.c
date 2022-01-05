@@ -1900,7 +1900,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
+  /*if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
     
     if (!found_one && afl->pass_stats[key].faileds < 0xff) {
 
@@ -1910,7 +1910,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
   
-  }
+  }*/
 
   return 0;
 
@@ -2587,7 +2587,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
+  /*if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
     
     if (!found_one && afl->pass_stats[key].faileds < 0xff) {
 
@@ -2597,7 +2597,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
     
-  }
+  }*/
 
   return 0; 
 
