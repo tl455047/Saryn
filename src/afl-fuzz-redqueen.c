@@ -1901,7 +1901,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
   if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
-  
+    
     if (!found_one && afl->pass_stats[key].faileds < 0xff) {
 
       afl->pass_stats[key].faileds++;
@@ -2982,7 +2982,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
   }
 
-  fprintf(stderr, "untaint part: %u k: %u\n", untaint_len, cksum_cur);
+  //fprintf(stderr, "untaint part: %u k: %u\n", untaint_len, cksum_cur);
 
   /*struct tainted *tmp;
   u32 count = 0;
@@ -3038,7 +3038,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       // discard different part
       loggeds = MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)(afl->orig_cmp_map->headers[k].hits));
-      if (!loggeds || afl->shm.cmp_map->headers[k].hits != afl->orig_cmp_map->headers[k].hits) { 
+      if (!loggeds) { 
         afl->shm.cmp_map->headers[k].hits = 0;
         continue; 
       }
