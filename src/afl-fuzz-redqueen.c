@@ -3006,9 +3006,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_cur = 0;
 
 #ifdef CMPLOG_COMBINE
-  u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
   memcpy(cbuf, orig_buf, len);
-  u8 *virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
   memcpy(virgin_backup, afl->virgin_bits, afl->shm.map_size);
 #else
   u8 *cbuf = NULL;
