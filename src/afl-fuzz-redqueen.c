@@ -2957,7 +2957,11 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // byte level mutate
     type_replace(afl, test_buf + i, 1);
     // exec, and get cksum
-    get_exec_checksum(afl, test_buf, len, &cksum);
+    if (unlikely(get_exec_checksum(afl, test_buf, len, &cksum)) {
+      // restore buf
+      *(test_buf + i) = *(orig_buf + i);
+      continue;
+    }
     // store unique cksum
     is_exist = 0;
     for(u32 j = 0; j < cksum_cur; j++) {
