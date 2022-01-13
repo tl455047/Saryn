@@ -190,7 +190,8 @@ struct queue_entry {
 
   u8 *            cmplog_colorinput;    /* the result buf of colorization   */
   struct tainted *taint;                /* Taint information from CmpLog    */
-
+  struct tainted **taint_offset;        /* Taint information from bytes discarded by colorization */
+  u32             cksum_cur;            /* number of unique paths from bytes discarded by colorization */
   struct queue_entry *mother;           /* queue entry this based on        */
 
 };

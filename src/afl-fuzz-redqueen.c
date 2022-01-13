@@ -2908,100 +2908,105 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
   
-  // testing
-  // calulate K
-  u8 *test_buf;
+  // take input discarded by colorization into account
+  // perform input-to-state on these offsets 
+  // calulate K, K means the number of unique paths 
   u64 *test_cksum;
   u32 taint_len = 0, untaint_len = 0, cksum_cur = 0, is_exist = 0;
   u64 cksum = 0;
-  struct tainted **test_offset;
+  struct tainted **taint_offset;
   
-  t = taint;
-  while(t != NULL) {
-    taint_len += t->len;
-    t = t->next;
-  }
+  memcpy(buf, orig_buf, len);
+  if (afl->queue_cur->taint_offset == NULL) {
 
-  untaint_len = len - taint_len;
+    // calculate how many bytes colorization discards 
+    t = taint;
+    while(t != NULL) {
 
-  test_buf = ck_alloc(len);
-  test_cksum = ck_alloc(sizeof(u64) * untaint_len);
-  test_offset = ck_alloc(sizeof(struct tainted *) * untaint_len);
-  memset(test_offset, 0, sizeof(struct tainted *) * untaint_len);
-  memcpy(test_buf, orig_buf, len);
-  
-  t = taint;
-  while (t->next != NULL) {
+      taint_len += t->len;
+      t = t->next;
     
-    t = t->next;
+    }
+    untaint_len = len - taint_len;
 
-  }
-
-  for(u32 i = 0; i < len; i++) {
+    test_cksum = ck_alloc(sizeof(u64) * untaint_len);
+    taint_offset = ck_alloc(sizeof(struct tainted *) * untaint_len);
+    memset(test_cksum, 0, sizeof(u64) * untaint_len);
+    memset(taint_offset, 0, sizeof(struct tainted *) * untaint_len);
     
-    // skip taint part
-    if (!t || i < t->pos) {
-
-
-    } else {
+    t = taint;
+    while (t->next != NULL) {
       
-      if (i == t->pos + t->len - 1) { t = t->prev; }
-      continue;
+      t = t->next;
 
     }
-    
-    // byte level mutate
-    type_replace(afl, test_buf + i, 1);
-    // exec, and get cksum
-    if (unlikely(get_exec_checksum(afl, test_buf, len, &cksum))) {
-      // restore buf
-      *(test_buf + i) = *(orig_buf + i);
-      continue;
-    }
-    // store unique cksum
-    is_exist = 0;
-    for(u32 j = 0; j < cksum_cur; j++) {
-      if (test_cksum[j] == cksum) {
 
-        test_offset[j] = add_tainted(test_offset[j], i, 1);
-        is_exist = 1;
-        break;
+    // record all bytes which causes same path
+    for(u32 i = 0; i < len; i++) {
+      
+      // skip taint part
+      if (!t || i < t->pos) {
+
+
+      } else {
+        
+        if (i == t->pos + t->len - 1) { t = t->prev; }
+        continue;
+
+      }
+      
+      // byte level mutate
+      type_replace(afl, buf + i, 1);
+      // exec, and get cksum
+      if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) {
+        // restore buf
+        *(buf + i) = *(orig_buf + i);
+        continue;
+      }
+      // store unique cksum
+      is_exist = 0;
+      for(u32 j = 0; j < cksum_cur; j++) {
+
+        if (test_cksum[j] == cksum) {
+
+          taint_offset[j] = add_tainted(taint_offset[j], i, 1);
+          is_exist = 1;
+          break;
+
+        }
 
       }
 
-    }
-
-    if (!is_exist) {
+      if (!is_exist) {
+        
+        taint_offset[cksum_cur] = add_tainted(taint_offset[cksum_cur], i, 1);
+        test_cksum[cksum_cur++] = cksum;
       
-      test_offset[cksum_cur] = add_tainted(test_offset[cksum_cur], i, 1);
-      test_cksum[cksum_cur++] = cksum;
-    
+      }
+      // restore buf
+      *(buf + i) = *(orig_buf + i);
+      
     }
-    // restore buf
-    *(test_buf + i) = *(orig_buf + i);
-    
-  }
 
-  //fprintf(stderr, "untaint part: %u k: %u\n", untaint_len, cksum_cur);
+    free(test_cksum);
 
-  /*struct tainted *tmp;
-  u32 count = 0;
-  for(u32 i = 0; i < untaint_len; i++) {
-    if (test_offset[i] != NULL) {
-      tmp = test_offset[i];
-      while(tmp != NULL) {
-        fprintf(stderr, "i: %u pos: %u len: %u ", i, tmp->pos, tmp->len);
-        count += tmp->len;
-        tmp = tmp->next;
-      }fprintf(stderr, "\n");
-    }
+    afl->queue_cur->taint_offset = taint_offset;
+    afl->queue_cur->cksum_cur = cksum_cur;
+
   }
-  fprintf(stderr, "total len: %u\n", count);*/
+  else {
+
+    taint_offset = afl->queue_cur->taint_offset;
+    cksum_cur = afl->queue_cur->cksum_cur;
+
+  }
+  
+  // distinguish contribution from original its and its plus
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
   
   afl->stage_name = "input-to-state plus";
-  afl->stage_short = "its";
+  afl->stage_short = "itsp";
   afl->stage_max = 0;
   afl->stage_cur = 0;
 
@@ -3013,11 +3018,10 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   for(u32 i = 0; i < cksum_cur; i++) {
-    // we only need to exec cmlog_stuff n path times
-
+    // we only need to exec cmplog_stuff n path times
     // we can mutate all offsets in one time, since all offsets lead to same path 
     // mutate all offsets
-    t = test_offset[i];  
+    t = taint_offset[i];  
     while(t != NULL) {
 
       type_replace(afl, buf + t->pos, t->len);
@@ -3065,8 +3069,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
       }
 
     }
+
     // set offset
-    taint = test_offset[i];
+    t = taint_offset[i];
     for (k = 0; k < CMP_MAP_W; ++k) {
 
       if (!afl->shm.cmp_map->headers[k].hits) { continue; }
@@ -3077,7 +3082,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
-        if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
+        if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, t))) {
 
           goto exit_its;
 
@@ -3090,7 +3095,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
                 //#endif
       ) {
 
-        if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
+        if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, t))) {
 
           goto exit_its;
 
@@ -3101,7 +3106,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
     // restore buf
-    t = test_offset[i];  
+    t = taint_offset[i];  
     while(t != NULL) {
 
       memcpy(buf + t->pos, orig_buf + t->pos, t->len);
@@ -3110,22 +3115,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
   }
-
-  free(test_buf); 
-  free(test_cksum);
-  
-  struct tainted *tmp;
-  for(u32 i = 0; i < untaint_len; i++) {
-    t = test_offset[i];
-    while(t != NULL) {
-
-      tmp = t;
-      t = t->next;
-      free(tmp);
-
-    }
-  }
-  free(test_offset);
 
   r = 0;
 
