@@ -101,45 +101,6 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
 }
 
-
-void __memlog_debug_output(afl_state_t *afl) {
-
-  struct hook_va_arg_operand *__hook_va_arg;
-  for(int i = 0; i < MEM_MAP_W; i++) {
-    
-    if (!afl->shm.mem_map->headers[i].hits) continue;
-
-    fprintf(stderr, "header: id: %u hits: %u src_shape: %u rst_shape: %u type: %u\n", 
-      afl->shm.mem_map->headers[i].id, 
-      afl->shm.mem_map->headers[i].hits,
-      afl->shm.mem_map->headers[i].src_shape,
-      afl->shm.mem_map->headers[i].rst_shape,
-      afl->shm.mem_map->headers[i].type);
-    
-    switch(afl->shm.mem_map->headers[i].type) {
-       case HT_GEP_HOOK:
-        fprintf(stderr, "hook va arg log: num: %u ptr: %p\n",
-          afl->shm.mem_map->log[i][0].__hook_va_arg.num,
-          afl->shm.mem_map->log[i][0].__hook_va_arg.ptr);
-        __hook_va_arg = &afl->shm.mem_map->log[i][0].__hook_va_arg;
-        for(u32 j = 0; j < afl->shm.mem_map->log[i][0].__hook_va_arg.num; j++) {
-          fprintf(stderr, "idx: %d ",
-          __hook_va_arg->idx[j]);
-        }fprintf(stderr, "\n");
-        break;
-      default:
-        /*fprintf(stderr, "hook log: type: %u dst: %p src: %p value: %lld size: %lld\n",
-          afl->shm.memlog_map->headers[i].type,
-          afl->shm.memlog_map->log[i][0].__hook_op.dst,
-          afl->shm.memlog_map->log[i][0].__hook_op.src,
-          afl->shm.memlog_map->log[i][0].__hook_op.value,
-          afl->shm.memlog_map->log[i][0].__hook_op.size);*/
-        break;
-    }
-  }
-
-}
-
 static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
   struct tainted *new_taint;
@@ -913,9 +874,9 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       switch (m_map->headers[i].type) {
 
-        case HT_HOOK3: {
+        case HT_HOOK1: {
 
-          if (o->dst != orig_o->dst || o->value != orig_o->value || o->size != orig_o->size) {
+          if (o->dst != orig_o->dst || o->size != orig_o->size) {
             
             afl->orig_mem_map->headers[i].hits = 0;
             afl->unstable_len += 1;
@@ -924,7 +885,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
           break;
         
         }
-        case HT_HOOK4: {
+        case HT_HOOK2: {
 
           if (o->dst != orig_o->dst || o->src != orig_o->src || o->size != orig_o->size) {
             
@@ -935,7 +896,7 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
           break;
 
         }
-        case HT_HOOK5: {
+        case HT_HOOK3: {
 
           if (o->size != orig_o->size) {
             
@@ -946,20 +907,9 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
           break;
 
         }
-        case HT_HOOK6: {
+        case HT_HOOK4: {
 
           if (o->src != orig_o->src) {
-            
-            afl->orig_mem_map->headers[i].hits = 0;
-            afl->unstable_len += 1;
-
-          }
-          break;
-
-        }
-        case HT_HOOK7: {
-
-          if (o->src != orig_o->src || o->size != orig_o->size) {
             
             afl->orig_mem_map->headers[i].hits = 0;
             afl->unstable_len += 1;
@@ -1064,48 +1014,37 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
         switch (m_map->headers[k].type) {
 
-          case HT_HOOK3: {
+          case HT_HOOK1: {
 
             if (o->dst != orig_o->dst) 
-              update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_DST, &input_tainted, &inst_hit);
-            if (o->value != orig_o->value)
-              update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_VALUE, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_DST, &input_tainted, &inst_hit);
             if (o->size != orig_o->size) 
-              update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_SIZE, &input_tainted, &inst_hit);
             break;
           
           }
-          case HT_HOOK4: {
+          case HT_HOOK2: {
 
             if (o->dst != orig_o->dst)
-              update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_DST, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_DST, &input_tainted, &inst_hit);
             if (o->src != orig_o->src)
-              update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SRC, &input_tainted, &inst_hit);
             if (o->size != orig_o->size) 
-              update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SIZE, &input_tainted, &inst_hit);        
+              update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SIZE, &input_tainted, &inst_hit);        
             break;
 
           }
-          case HT_HOOK5: {
+          case HT_HOOK3: {
 
             if (o->size != orig_o->size) 
-              update_colorized(afl, i, j, k, l, HT_HOOK5, MEMLOG_SIZE, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
             break;
 
           }
-          case HT_HOOK6: {
+          case HT_HOOK4: {
 
             if (o->src != orig_o->src) 
-              update_colorized(afl, i, j, k, l, HT_HOOK6, MEMLOG_SRC, &input_tainted, &inst_hit);
-            break;
-
-          }
-          case HT_HOOK7: {
-
-            if (o->src != orig_o->src)
-              update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SRC, &input_tainted, &inst_hit);
-            if (o->size != orig_o->size) 
-              update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SIZE, &input_tainted, &inst_hit);
+              update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
             break;
 
           }
@@ -1230,48 +1169,37 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
           switch (m_map->headers[k].type) {
 
-            case HT_HOOK3: {
+            case HT_HOOK1: {
 
               if (o->dst != orig_o->dst) 
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_DST, &input_tainted, &inst_hit);
-              if (o->value != orig_o->value)
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_VALUE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_DST, &input_tainted, &inst_hit);
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_SIZE, &input_tainted, &inst_hit);
               break;
             
             }
-            case HT_HOOK4: {
+            case HT_HOOK2: {
 
               if (o->dst != orig_o->dst)
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_DST, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_DST, &input_tainted, &inst_hit);
               if (o->src != orig_o->src)
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SRC, &input_tainted, &inst_hit);
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SIZE, &input_tainted, &inst_hit);        
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SIZE, &input_tainted, &inst_hit);        
               break;
 
             }
-            case HT_HOOK5: {
+            case HT_HOOK3: {
 
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK5, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
               break;
 
             }
-            case HT_HOOK6: {
+            case HT_HOOK4: {
 
               if (o->src != orig_o->src) 
-                update_colorized(afl, i, j, k, l, HT_HOOK6, MEMLOG_SRC, &input_tainted, &inst_hit);
-              break;
-
-            }
-            case HT_HOOK7: {
-
-              if (o->src != orig_o->src)
-                update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SRC, &input_tainted, &inst_hit);
-              if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
               break;
 
             }
@@ -1383,48 +1311,37 @@ u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
           switch (m_map->headers[k].type) {
 
-            case HT_HOOK3: {
+            case HT_HOOK1: {
 
               if (o->dst != orig_o->dst) 
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_DST, &input_tainted, &inst_hit);
-              if (o->value != orig_o->value)
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_VALUE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_DST, &input_tainted, &inst_hit);
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK1, MEMLOG_SIZE, &input_tainted, &inst_hit);
               break;
             
             }
-            case HT_HOOK4: {
+            case HT_HOOK2: {
 
               if (o->dst != orig_o->dst)
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_DST, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_DST, &input_tainted, &inst_hit);
               if (o->src != orig_o->src)
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SRC, &input_tainted, &inst_hit);
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SIZE, &input_tainted, &inst_hit);        
+                update_colorized(afl, i, j, k, l, HT_HOOK2, MEMLOG_SIZE, &input_tainted, &inst_hit);        
               break;
 
             }
-            case HT_HOOK5: {
+            case HT_HOOK3: {
 
               if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK5, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK3, MEMLOG_SIZE, &input_tainted, &inst_hit);
               break;
 
             }
-            case HT_HOOK6: {
+            case HT_HOOK4: {
 
               if (o->src != orig_o->src) 
-                update_colorized(afl, i, j, k, l, HT_HOOK6, MEMLOG_SRC, &input_tainted, &inst_hit);
-              break;
-
-            }
-            case HT_HOOK7: {
-
-              if (o->src != orig_o->src)
-                update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SRC, &input_tainted, &inst_hit);
-              if (o->size != orig_o->size) 
-                update_colorized(afl, i, j, k, l, HT_HOOK7, MEMLOG_SIZE, &input_tainted, &inst_hit);
+                update_colorized(afl, i, j, k, l, HT_HOOK4, MEMLOG_SRC, &input_tainted, &inst_hit);
               break;
 
             }

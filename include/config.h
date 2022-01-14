@@ -516,7 +516,7 @@
 
 /* Memlog hook num */
 
-#define MEMLOG_HOOK_NUM 10
+#define MEMLOG_HOOK_NUM 6
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
