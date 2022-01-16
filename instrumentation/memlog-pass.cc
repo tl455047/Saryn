@@ -283,6 +283,8 @@ HookType MemlogPass::getHookType(const Function *F) {
         return HT_HOOK4;
     else if (__HookABIList.isIn(*F, "gephook"))
         return HT_GEP_HOOK;
+    else if (__HookABIList.isIn(*F, "hook5"))
+        return HT_HOOK5;
     return HT_UNKNOWN;
 
 }
@@ -350,6 +352,13 @@ void MemlogPass::visitCallBase(CallBase &CB) {
                     break;
                 case HT_HOOK4:
                     IRB.CreateCall(MemlogHook4Fn, ArgArray)->setMetadata(CB.getModule()->getMDKindID("nosanitize"), SanitizeMDNode);
+                    break;
+                case HT_HOOK5:
+                    // __memlog_hook5 is for functions with three arguments such as memset, but we do not need the second
+                    // argument, so we instrument hook1 and discard the second argument. 
+                    ArgArray[2] = ArgArray[3];
+                    ArgArray.pop_back();
+                    IRB.CreateCall(MemlogHook1Fn, ArgArray)->setMetadata(CB.getModule()->getMDKindID("nosanitize"), SanitizeMDNode);
                     break;
                 default:
                     break;
@@ -435,6 +444,8 @@ void MemlogPass::visitMemSetInst(MemSetInst &I) {
         if (NonConstant) {
             // We only instrument when there is at least one non constant argument.
             ArgArray[0] = ConstantInt::get(Int32Ty, HookID++);
+            ArgArray[2] = ArgArray[3];
+            ArgArray.pop_back();
             IRB.CreateCall(MemlogHook1Fn, ArgArray)->setMetadata(I.getModule()->getMDKindID("nosanitize"), SanitizeMDNode);
         
         }

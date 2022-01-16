@@ -23,7 +23,9 @@ enum HookType {
   // ex. free
   HT_HOOK4 = 4,
   // __memlog_get_element_ptr_hook (unsigned id, void* ptr, unsigned num_of_idx, ...);
-  HT_GEP_HOOK = 5
+  HT_GEP_HOOK = 5,
+  // __memlog_hook5 (unsigned id, void* dst, void* src, size_t size)
+  HT_HOOK5 = 6
   
 };
 
