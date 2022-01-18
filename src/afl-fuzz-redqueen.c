@@ -1657,6 +1657,12 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   for (i = 0; i < loggeds; ++i) {
 
+    if (strncmp(afl->stage_name, "input-to-state plus", 20) == 0) {
+
+      if (afl->shm.cmp_map->cksum[key][i] != afl->orig_cmp_map->cksum[key][i]) continue; 
+    
+    }
+    
     struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
 
     // loop detection code
@@ -2420,6 +2426,12 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   }
 
   for (i = 0; i < loggeds; ++i) {
+
+    if (strncmp(afl->stage_name, "input-to-state plus", 20) == 0) {
+
+      if (afl->shm.cmp_map->cksum[key][i] != afl->orig_cmp_map->cksum[key][i]) continue; 
+    
+    }
 
     struct cmpfn_operands *o =
         &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
