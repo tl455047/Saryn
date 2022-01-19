@@ -576,7 +576,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (lto_mode)
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/memlog-rt-lto.o", obj_path);
-    
+            
     }
     
 #if LLVM_MAJOR >= 13

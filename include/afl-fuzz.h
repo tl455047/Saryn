@@ -588,13 +588,8 @@ typedef struct afl_state {
   u64 memlog_val;
 
   u32 unstable_len,                     /*       taint inference info       */
-      is_colored,
-      memlog_tainted_len,
-      color_tainted_len,
-      infer_tainted_len,
-      ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM],
-      color_ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM],
-      infer_ht_tainted[MEMLOG_HOOK_NUM][MEMLOG_MUTATOR_NUM];
+      tainted_len,
+      ht_tainted[MEMLOG_HOOK_NUM][TAINT_INFER_MUTATOR_NUM];
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -1172,7 +1167,7 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* temporary name */
-u8 memlog_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
+u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

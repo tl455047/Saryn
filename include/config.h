@@ -512,7 +512,7 @@
 
 /* Memlog mutator num */
 
-#define MEMLOG_MUTATOR_NUM 1
+#define TAINT_INFER_MUTATOR_NUM 1
 
 /* Memlog hook num */
 

@@ -586,7 +586,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   // smaller than 2^16.
   if (unlikely(afl->shm.memlog_mode) && len <= MEMLOG_MAXIMUM_INPUT_SIZE) {
     memcpy(out_buf, in_buf, len);
-    if (memlog_stage(afl, in_buf, out_buf, len)) {
+    if (taint_inference_stage(afl, in_buf, out_buf, len)) {
 
       goto abandon_entry;
 

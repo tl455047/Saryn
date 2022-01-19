@@ -1200,13 +1200,13 @@ void show_stats(afl_state_t *afl) {
     u32 offset;
     s32 count;
                                        
-    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference(check) " bSTG bH2 bH bH5 bH10 bH2 bH bH2 bH2 bH2 bVL"\n");                                         
-    sprintf(tmp, "%d/%d/%d", afl->memlog_tainted_len, afl->queue_cur->len, afl->unstable_len);
+    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
+    sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->unstable_len);
     SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
 
-    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
+    for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
       offset = 0;
-      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
+      for (u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) {
         if (j == 0)
           count = sprintf(tmp + offset, "%d", afl->ht_tainted[i][j]);
         else  
@@ -1218,50 +1218,7 @@ void show_stats(afl_state_t *afl) {
           offset += count;
       }
 
-      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
-
-    }
-
-     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
-    sprintf(tmp, "%d/%d/%d", afl->infer_tainted_len, afl->queue_cur->len, afl->unstable_len);
-    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
-
-    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
-      offset = 0;
-      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
-        if (j == 0)
-          count = sprintf(tmp + offset, "%d", afl->infer_ht_tainted[i][j]);
-        else  
-          count = sprintf(tmp + offset, "/%d", afl->infer_ht_tainted[i][j]); 
-
-        if (count < 0)
-          break;
-        else  
-          offset += count;
-      }
-
-      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
-
-    }
-    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " colorization " bSTG bH10 bH10 bH10 bH2 bH2 bH2 bH bVL"\n");                                         
-    sprintf(tmp, "%d/%d/%d", afl->color_tainted_len, afl->queue_cur->len, afl->unstable_len);
-    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
-
-    for (u32 i = 4; i < MEMLOG_HOOK_NUM; i++) {
-      offset = 0;
-      for (u32 j = 0; j < MEMLOG_MUTATOR_NUM; j++) {
-        if (j == 0)
-          count = sprintf(tmp + offset, "%d", afl->color_ht_tainted[i][j]);
-        else  
-          count = sprintf(tmp + offset, "/%d", afl->color_ht_tainted[i][j]); 
-
-        if (count < 0)
-          break;
-        else  
-          offset += count;
-      }
-
-      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i - 1, tmp); 
+      SAYF(bV bSTOP " HT%u tainted : "  cRST "%-36s " bSTG bV"\n", i, tmp); 
 
     }
 
