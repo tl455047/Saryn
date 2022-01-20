@@ -67,13 +67,6 @@ struct hook_va_arg_operand {
 
 } __attribute__((packed));
 
-struct hook_va_arg_idx {
-  
-  unsigned int type;
-  unsigned long long idx;
-
-} __attribute__((packed));
-
 union hook_operands {
 
   struct hook_operand __hook_op;

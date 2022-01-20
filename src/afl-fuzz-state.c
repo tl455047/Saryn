@@ -554,6 +554,7 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
   if (afl->orig_mem_map) { ck_free(afl->orig_mem_map); }
+  if (afl->tmp_tainted) {ck_free(afl->tmp_tainted); }
   
   afl_free(afl->queue_buf);
   afl_free(afl->out_buf);

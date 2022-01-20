@@ -45,7 +45,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
-
+#include "memlog.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -149,6 +149,23 @@ struct tainted {
 
 };
 
+/* for memlog */
+
+struct tainted_info {
+  
+  u32 id;
+  u32 hits;
+  u8  inst_type; // inst. type
+  u8  type; // tainted operand/argument type
+  u32 size;
+  u32 idx;
+  struct tainted *taint;
+  struct tainted_info *next;
+  
+};
+
+typedef struct tainted_info* tainted_map[MEM_MAP_W][MEM_MAP_H];
+
 struct queue_entry {
 
   u8 *fname;                            /* File name for the test case      */
@@ -190,8 +207,11 @@ struct queue_entry {
 
   u8 *            cmplog_colorinput;    /* the result buf of colorization   */
   struct tainted *taint;                /* Taint information from CmpLog    */
-  struct tainted **taint_offset;        /* Taint information from bytes discarded by colorization */
+  struct tainted **cmplog_taint;        /* Taint information from bytes discarded by colorization */
   u32             cksum_cur;            /* number of unique paths from bytes discarded by colorization */
+  struct tainted *c_bytes;              /* total tainted ofs for Memlog     */
+  struct tainted_info **memlog_taint;   /* Taint information from Memlog    */
+  u32             tainted_cur;
   struct queue_entry *mother;           /* queue entry this based on        */
 
 };
@@ -583,13 +603,13 @@ typedef struct afl_state {
       memlog_type,
       memlog_op_type,
       memlog_idx_num,
-      memlog_idx,
-      memlog_ofs;
+      memlog_idx;
   u64 memlog_val;
 
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,
-      ht_tainted[MEMLOG_HOOK_NUM][TAINT_INFER_MUTATOR_NUM];
+      ht_tainted[MEMLOG_HOOK_NUM];
+  tainted_map *tmp_tainted;
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
