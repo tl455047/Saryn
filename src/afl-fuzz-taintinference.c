@@ -531,12 +531,16 @@ void update_state(afl_state_t *afl) {
   struct tainted *t;
   struct tainted_info **tmp;
   // update tainted input length
-  t = afl->queue_cur->c_bytes;
-  while(t != NULL) {
+  if (afl->tainted_len == 0) {
+  
+    t = afl->queue_cur->c_bytes;
+    while(t != NULL) {
 
-    afl->tainted_len += t->len;
-    t = t->next;
+        afl->tainted_len += t->len;
+        t = t->next;
 
+    }
+  
   }
   
   // update tainted inst.
@@ -559,7 +563,15 @@ void write_to_taint(afl_state_t *afl) {
   u8 *queue_fn = "", *mem;
   u32 total_len, ofs;
   s32 fd, len;
-  
+
+  // update tainted input length
+  t = afl->queue_cur->c_bytes;
+  while(t != NULL) {
+
+    afl->tainted_len += t->len;
+    t = t->next;
+
+  }  
   // critical bytes 
 
   // calculate total length of buffer 
@@ -626,7 +638,7 @@ void write_to_taint(afl_state_t *afl) {
 
     }
   } 
-  
+
   // collect all c_bytes to buffer
   mem = ck_alloc(total_len + 1);
   ofs = 0;
@@ -847,7 +859,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     if (taint(afl, buf, orig_buf, len)) {
       // free
       for (u32 i = 0; i < MEM_MAP_W; i++) {
-        
+
         for (u32 j = 0; j < MEM_MAP_H; j++) {  
           
           if ((*afl->tmp_tainted)[i][j] != NULL) {
@@ -894,12 +906,13 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     }
 
+    // write c_byte to file
+    write_to_taint(afl);
+
   }
 
 
   update_state(afl);
-  // write c_byte to file
-  write_to_taint(afl);
   
   //taint_debug(afl);
   // tainted part only mutation
