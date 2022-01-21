@@ -299,7 +299,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
   
   }
 
-  for( ; afl->stage_cur < cur * stage_max; afl->stage_cur++) {
+  for( ; afl->stage_cur < (cur + 1) * stage_max; afl->stage_cur++) {
   
     use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
     afl->stage_cur_val = use_stacking;
@@ -631,6 +631,32 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
   return 0;
 
+}
+
+u8 taint_grad(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, u32 cur) {
+
+  struct tainted *t; 
+  s32 grad;
+
+  afl->memlog_id = afl->queue_cur->memlog_taint[cur]->id;
+  afl->memlog_hits = afl->queue_cur->memlog_taint[cur]->hits;
+  afl->memlog_type = afl->queue_cur->memlog_taint[cur]->inst_type;
+  afl->memlog_op_type = afl->queue_cur->memlog_taint[cur]->type;
+
+  while (afl->stage_cur < (cur + 1) * stage_max) {
+    
+    afl->stage_cur++;
+    // calculate gradient
+    //if (cal_grad()) continue;
+    
+    //if (grad != 0) {
+
+      // discend
+
+    //}
+  }
+
+  return 0;
 }
 
 void taint_debug(afl_state_t *afl) {
@@ -965,6 +991,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     // for each mutator
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       // byte-level mutate
+      byte_level_mutate(afl, buf, i, j); 
       // execute
       if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) continue;
 
@@ -1001,8 +1028,6 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
 u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {  
   
-  struct tainted *t;
-
   afl->stage_name = "taint inference";
   afl->stage_short = "ti";
   afl->stage_max = len * TAINT_INFER_MUTATOR_NUM;
@@ -1060,10 +1085,10 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     write_to_taint(afl);
 
   }
-  else if (!afl->queue_cur->tainted_cur) {
-  
+  else if(!afl->queue_cur->tainted_cur) {
+
     return 0;
-  
+
   }
 
   update_state(afl);
@@ -1087,7 +1112,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_cur = 0;
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
-    taint_havoc(afl, buf, orig_buf, len, inst_stage_max, i);
+    if (taint_havoc(afl, buf, orig_buf, len, inst_stage_max, i)) return 1;
 
   }
   
@@ -1096,7 +1121,23 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_cycles[STAGE_TAINT_HAVOC] += afl->fsrv.total_execs - orig_execs;
 
   // gradient descent
+  /*afl->stage_name = "taint grad";
+  afl->stage_short = "tg";
+  afl->stage_cur = 0;
+
+  afl->stage_max = HAVOC_CYCLES_INIT * 4;
+  inst_stage_max = afl->stage_max / afl->queue_cur->tainted_cur;
+
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+  orig_execs = afl->fsrv.total_execs;
   
+  afl->stage_cur = 0;
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+    
+    if (taint_grad(afl, buf, orig_buf, len, inst_stage_max, i)) return 1;
+
+  }*/
+
   return 0;
 
 }
