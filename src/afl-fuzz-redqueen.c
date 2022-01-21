@@ -2775,6 +2775,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   // Start insertion loop
+  u32 cksum_cur = 0;
+  struct tainted **cmplog_taint = NULL;
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
@@ -2924,10 +2926,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // perform input-to-state on these offsets 
   // calulate K, K means the number of unique paths 
   u64 *test_cksum;
-  u32 taint_len = 0, untaint_len = 0, cksum_cur = 0, is_exist = 0;
+  u32 taint_len = 0, untaint_len = 0, is_exist = 0;
   u64 cksum = 0;
-  struct tainted **cmplog_taint = NULL;
-
   
   memcpy(buf, orig_buf, len);
   if (afl->queue_cur->cmplog_taint == NULL) {
@@ -3153,18 +3153,23 @@ exit_its:
 
     afl->queue_cur->taint = NULL;
 
-    for (u32 i = 0; i < cksum_cur; i++) {
+    if (afl->queue_cur->cmplog_taint != NULL) {
       
-      while(cmplog_taint[i]) {
+      for (u32 i = 0; i < cksum_cur; i++) {
+        
+        while(cmplog_taint[i]) {
 
-        t = cmplog_taint[i]->next;
-        ck_free(cmplog_taint[i]);
-        cmplog_taint[i] = t;
+          t = cmplog_taint[i]->next;
+          ck_free(cmplog_taint[i]);
+          cmplog_taint[i] = t;
+
+        }
 
       }
 
+      afl->queue_cur->cmplog_taint = NULL;
+    
     }
-    afl->queue_cur->cmplog_taint = NULL;
 
   } else {
 

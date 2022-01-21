@@ -1140,7 +1140,7 @@ void show_stats(afl_state_t *afl) {
   //} else {
 
   SAYF(bV bSTOP "    trim/eff : " cRST "%-36s " bSTG bV RESET_G1, tmp);
-
+  
   //}
 
   /* Provide some CPU utilization stats. */
@@ -1197,7 +1197,10 @@ void show_stats(afl_state_t *afl) {
 
   /* taint inference */
   if (afl->shm.memlog_mode == 1) {
-                              
+
+    sprintf(tmp, "%llu/%llu", afl->stage_finds[STAGE_TAINT_HAVOC], afl->stage_cycles[STAGE_TAINT_HAVOC]);
+    SAYF("\n"SET_G1 bSTG bV bSTOP "          th : " cRST "%-36s " bSTG bV"\n", tmp);
+
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->unstable_len);
     SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
@@ -1259,7 +1262,7 @@ void show_stats(afl_state_t *afl) {
         break;
       }
       case MEMLOG_IDX: {
-        sprintf(tmp, "%s/%d/%d", "IDX", afl->memlog_idx, afl->memlog_idx_num);
+        sprintf(tmp, "%s", "IDX");
         break;
       }
       case MEMLOG_VA_SRC: {
@@ -1271,9 +1274,7 @@ void show_stats(afl_state_t *afl) {
     
     }
     
-    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV"\n", tmp);             
-    sprintf(tmp, "%llu", afl->memlog_val);   
-    SAYF(bV bSTOP "       value : "  cRST "%-36s " bSTG bV, tmp);            
+    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV, tmp);                  
 
   }
 

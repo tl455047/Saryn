@@ -232,257 +232,396 @@ void byte_level_mutate(afl_state_t *afl, u8 *buf, u32 ofs, u32 mutator) {
 
 }
 
-u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 cur) {
+
+/* Helper to choose random block len for block operations in fuzz_one().
+   Doesn't return zero, provided that max_len is > 0. */
+
+static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
+
+  u32 min_value, max_value;
+  u32 rlim = MIN(afl->queue_cycle, (u32)3);
+
+  if (unlikely(!afl->run_over10m)) { rlim = 1; }
+
+  switch (rand_below(afl, rlim)) {
+
+    case 0:
+      min_value = 1;
+      max_value = HAVOC_BLK_SMALL;
+      break;
+
+    case 1:
+      min_value = HAVOC_BLK_SMALL;
+      max_value = HAVOC_BLK_MEDIUM;
+      break;
+
+    default:
+
+      if (likely(rand_below(afl, 10))) {
+
+        min_value = HAVOC_BLK_MEDIUM;
+        max_value = HAVOC_BLK_LARGE;
+
+      } else {
+
+        min_value = HAVOC_BLK_LARGE;
+        max_value = HAVOC_BLK_XL;
+
+      }
+
+  }
+
+  if (min_value >= limit) { min_value = 1; }
+
+  return min_value + rand_below(afl, MIN(max_value, limit) - min_value + 1);
+
+}
+
+u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, u32 cur) {
    
-  struct tainted *t = afl->queue_cur->memlog_taint[cur]->taint; 
-  u32 use_stacking, r_max, r, temp_len; 
+  struct tainted *t; 
+  u32 use_stacking, r_max, r, r_part, temp_len, parts; 
   u8* out_buf;
-  
-  afl->stage_cur_byte = -1;
 
   afl->memlog_id = afl->queue_cur->memlog_taint[cur]->id;
   afl->memlog_hits = afl->queue_cur->memlog_taint[cur]->hits;
   afl->memlog_type = afl->queue_cur->memlog_taint[cur]->inst_type;
   afl->memlog_op_type = afl->queue_cur->memlog_taint[cur]->type;
 
-  r_max = 39 + 1;
-  // extra ?
+  r_max = 50;
   
-  for(afl->stage_cur = 0; afl->stage_cur < afl->stage_max; afl->stage_cur++) {
-    t = afl->queue_cur->memlog_taint[cur]->taint;
-    // tainted part only mutate 
-    while(t != NULL) {
-    
+  parts = 0;
+  t = afl->queue_cur->memlog_taint[cur]->taint;
+  while(t != NULL) {
+
+    parts += 1;  
+    t = t->next;
+  
+  }
+
+  for( ; afl->stage_cur < cur * stage_max; afl->stage_cur++) {
+  
+    use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
+    afl->stage_cur_val = use_stacking;
+
+    for(u32 i = 0; i < use_stacking; i++) {
+      
+      // random generate tainted part
+      r_part = rand_below(afl, parts);
+      t = afl->queue_cur->memlog_taint[cur]->taint;
+      while(r_part--) {
+
+        t = t->next;
+
+      }  
+
       out_buf = buf + t->pos;
       temp_len = t->len;
-      use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
 
-      afl->stage_cur_val = use_stacking;
+      switch ((r = rand_below(afl, r_max))) {
+        
+        case 0 ... 3: {
 
-      for(u32 j = 0; j < use_stacking; j++) {
-      
-        switch ((r = rand_below(afl, r_max))) {
-          
-          case 0 ... 3: {
+          /* Flip a single bit somewhere. Spooky! */
 
-            /* Flip a single bit somewhere. Spooky! */
-            FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
-            break;
-
-          }
-          
-          case 4 ... 7: {
-
-          /* Set byte to interesting value. */
-          out_buf[rand_below(afl, temp_len)] =
-              interesting_8[rand_below(afl, sizeof(interesting_8))];
+          FLIP_BIT(out_buf, rand_below(afl, temp_len << 3));
           break;
 
-          }
-
+        }
         
-          case 8 ... 9: {
+        case 4 ... 7: {
 
-            /* Set word to interesting value, little endian. */
+        /* Set byte to interesting value. */
 
-            if (temp_len < 2) { break; }
-
-            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
-                interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
-
-            break;
-
-          }
-
-          case 10 ... 11: {
-
-            /* Set word to interesting value, big endian. */
-
-            if (temp_len < 2) { break; }
-
-            *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
-                interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
-
-            break;
-
-          }
-
-          case 12 ... 13: {
-
-            /* Set dword to interesting value, little endian. */
-
-            if (temp_len < 4) { break; }
-
-            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-                interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
-
-            break;
-
-          }
-
-          case 14 ... 15: {
-
-            /* Set dword to interesting value, big endian. */
-
-            if (temp_len < 4) { break; }
-
-            *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
-                interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
-
-            break;
-
-          }
-
-          case 16 ... 19: {
-
-            /* Randomly subtract from byte. */
-
-            out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
-            break;
-
-          }
-
-          case 20 ... 23: {
-
-            /* Randomly add to byte. */
-
-            out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
-            break;
-
-          }
-
-          case 24 ... 25: {
-
-            /* Randomly subtract from word, little endian. */
-
-            if (temp_len < 2) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 1);
-
-            *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
-
-            break;
-
-          }
-
-          case 26 ... 27: {
-
-            /* Randomly subtract from word, big endian. */
-
-            if (temp_len < 2) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 1);
-            u16 num = 1 + rand_below(afl, ARITH_MAX);
-            
-            *(u16 *)(out_buf + pos) =
-                SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
-
-            break;
-
-          }
-
-          case 28 ... 29: {
-
-            /* Randomly add to word, little endian. */
-
-            if (temp_len < 2) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 1);
-
-            *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
-
-            break;
-
-          }
-
-          case 30 ... 31: {
-
-            /* Randomly add to word, big endian. */
-
-            if (temp_len < 2) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 1);
-            u16 num = 1 + rand_below(afl, ARITH_MAX);
-
-            *(u16 *)(out_buf + pos) =
-                SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
-
-            break;
-
-          }
-
-          case 32 ... 33: {
-
-            /* Randomly subtract from dword, little endian. */
-
-            if (temp_len < 4) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 3);
-
-            *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
-
-            break;
-
-          }
-
-          case 34 ... 35: {
-
-            /* Randomly subtract from dword, big endian. */
-
-            if (temp_len < 4) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 3);
-            u32 num = 1 + rand_below(afl, ARITH_MAX);
-
-            *(u32 *)(out_buf + pos) =
-                SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
-
-            break;
-
-          }
-
-          case 36 ... 37: {
-
-            /* Randomly add to dword, little endian. */
-
-            if (temp_len < 4) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 3);
-
-            *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
-
-            break;
-
-          }
-
-          case 38 ... 39: {
-
-            /* Randomly add to dword, big endian. */
-
-            if (temp_len < 4) { break; }
-
-            u32 pos = rand_below(afl, temp_len - 3);
-            u32 num = 1 + rand_below(afl, ARITH_MAX);
-
-            *(u32 *)(out_buf + pos) =
-                SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
-
-            break;
-
-          }
-    
-          default:
-            // ... 
-            break;
+        out_buf[rand_below(afl, temp_len)] =
+            interesting_8[rand_below(afl, sizeof(interesting_8))];
+        break;
 
         }
 
-      } 
+      
+        case 8 ... 9: {
 
-      t = t->next;
+          /* Set word to interesting value, little endian. */
 
-    }
+          if (temp_len < 2) { break; }
 
+          *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) =
+              interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)];
+
+          break;
+
+        }
+
+        case 10 ... 11: {
+
+          /* Set word to interesting value, big endian. */
+
+          if (temp_len < 2) { break; }
+
+          *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
+              interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
+
+          break;
+
+        }
+
+        case 12 ... 13: {
+
+          /* Set dword to interesting value, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
+
+          break;
+
+        }
+
+        case 14 ... 15: {
+
+          /* Set dword to interesting value, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
+              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
+
+          break;
+
+        }
+
+        case 16 ... 19: {
+
+          /* Randomly subtract from byte. */
+
+          out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
+          break;
+
+        }
+
+        case 20 ... 23: {
+
+          /* Randomly add to byte. */
+
+          out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
+          break;
+
+        }
+
+        case 24 ... 25: {
+
+          /* Randomly subtract from word, little endian. */
+
+          if (temp_len < 2) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 1);
+
+          *(u16 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 26 ... 27: {
+
+          /* Randomly subtract from word, big endian. */
+
+          if (temp_len < 2) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 1);
+          u16 num = 1 + rand_below(afl, ARITH_MAX);
+          
+          *(u16 *)(out_buf + pos) =
+              SWAP16(SWAP16(*(u16 *)(out_buf + pos)) - num);
+
+          break;
+
+        }
+
+        case 28 ... 29: {
+
+          /* Randomly add to word, little endian. */
+
+          if (temp_len < 2) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 1);
+
+          *(u16 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 30 ... 31: {
+
+          /* Randomly add to word, big endian. */
+
+          if (temp_len < 2) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 1);
+          u16 num = 1 + rand_below(afl, ARITH_MAX);
+
+          *(u16 *)(out_buf + pos) =
+              SWAP16(SWAP16(*(u16 *)(out_buf + pos)) + num);
+
+          break;
+
+        }
+
+        case 32 ... 33: {
+
+          /* Randomly subtract from dword, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+
+          *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 34 ... 35: {
+
+          /* Randomly subtract from dword, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+          *(u32 *)(out_buf + pos) =
+              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
+
+          break;
+
+        }
+
+        case 36 ... 37: {
+
+          /* Randomly add to dword, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+
+          *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 38 ... 39: {
+
+          /* Randomly add to dword, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+          *(u32 *)(out_buf + pos) =
+              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
+
+          break;
+
+        }
+        
+        case 40 ... 43: {
+
+          /* Just set a random byte to a random value. Because,
+             why not. We use XOR with 1-255 to eliminate the
+             possibility of a no-op. */
+
+          out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
+          break;
+
+        }
+
+        case 44 ... 46: {
+
+          /* Overwrite bytes with a randomly selected chunk bytes. */
+
+          if (temp_len < 2) { break; }
+
+          u32 copy_len = choose_block_len(afl, temp_len - 1);
+          u32 copy_from = rand_below(afl, temp_len - copy_len + 1);
+          u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+          if (likely(copy_from != copy_to)) {
+
+            memmove(out_buf + copy_to, out_buf + copy_from, copy_len);
+
+          }
+
+          break;
+
+        }
+
+        case 47: {
+
+          /* Overwrite bytes with fixed bytes. */
+
+          if (temp_len < 2) { break; }
+
+          u32 copy_len = choose_block_len(afl, temp_len - 1);
+          u32 copy_to = rand_below(afl, temp_len - copy_len + 1);
+
+          memset(out_buf + copy_to,
+                 rand_below(afl, 2) ? rand_below(afl, 256)
+                                    : out_buf[rand_below(afl, temp_len)],
+                 copy_len);
+
+          break;
+
+        }
+
+        default:
+          if (afl->extras_cnt) {
+            
+            /* Use the dictionary. */
+
+            u32 use_extra = rand_below(afl, afl->extras_cnt);
+            u32 extra_len = afl->extras[use_extra].len;
+
+            if (extra_len > temp_len) { break; }
+
+            u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+
+            memcpy(out_buf + insert_at, afl->extras[use_extra].data,
+                    extra_len);
+
+            break;
+
+          }
+
+          if (afl->a_extras_cnt) {
+
+            /* Use the dictionary. */
+
+            u32 use_extra = rand_below(afl, afl->a_extras_cnt);
+            u32 extra_len = afl->a_extras[use_extra].len;
+
+            if (extra_len > temp_len) { break; }
+
+            u32 insert_at = rand_below(afl, temp_len - extra_len + 1);
+
+            memcpy(out_buf + insert_at, afl->a_extras[use_extra].data,
+                    extra_len);
+
+            break;
+
+          }
+          break;
+
+      }
+
+    } 
+
+      
     // execute
     if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
     //restore buf
@@ -857,8 +996,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   
   }
   
-  
-  if (afl->queue_cur->memlog_taint == NULL || afl->queue_cur->tainted_cur == 0) {
+  if (afl->queue_cur->memlog_taint == NULL) {
     // taint-inference
     if (taint(afl, buf, orig_buf, len)) {
       // free
@@ -892,7 +1030,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     }
     
-    if (afl->queue_cur->tainted_cur == 0) return 0;
+    if (!afl->queue_cur->tainted_cur) return 0;
     
     // Construct taint-info list
     afl->queue_cur->memlog_taint = ck_alloc(sizeof(struct tainted_info *) * afl->queue_cur->tainted_cur);
@@ -914,47 +1052,40 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     write_to_taint(afl);
 
   }
-
+  else if (!afl->queue_cur->tainted_cur) {
+  
+    return 0;
+  
+  }
 
   update_state(afl);
   
   //taint_debug(afl);
   
   // tainted part only mutation
-  /*u64 orig_hit_cnt, orig_execs;
-  u32 inst_stage_max, inst_stage_cur;
+  u64 orig_hit_cnt, new_hit_cnt, orig_execs;
+  u32 inst_stage_max;
 
   afl->stage_name = "taint havoc";
   afl->stage_short = "th";
   afl->stage_cur = 0;
   
-  afl->stage_max = HAVOC_CYCLES_INIT;
-  inst_stage_max = HAVOC_CYCLES_INIT / afl->queue_cur->tainted_cur;
-
-  if (inst_stage_max < HAVOC_MIN) { 
-  
-    afl->stage_max = HAVOC_MIN * afl->queue_cur->tainted_cur; 
-    inst_stage_max = HAVOC_MIN;
-
-  }
+  afl->stage_max = HAVOC_CYCLES_INIT * 4;
+  inst_stage_max = afl->stage_max / afl->queue_cur->tainted_cur;
   
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
   
-  for(inst_stage_cur = 0; inst_stage_cur < afl->queue_cur->tainted_cur; inst_stage_cur++) {
+  afl->stage_cur = 0;
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+    
+    taint_havoc(afl, buf, orig_buf, len, inst_stage_max, i);
 
   }
-  for(afl->stage_cur = 0; afl->stage_cur < afl->stage_max; afl->stage_cur++) {
-    
-    for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
-
-        taint_havoc(afl, buf, orig_buf, len, i);
-
-    }
-
-  }*/
   
-  // update cnt
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
+  afl->stage_finds[STAGE_TAINT_HAVOC] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_TAINT_HAVOC] += afl->fsrv.total_execs - orig_execs;
 
   // gradient descent
   

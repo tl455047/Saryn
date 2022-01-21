@@ -257,7 +257,7 @@ enum {
   /* 19 */ STAGE_COLORIZATION,
   /* 20 */ STAGE_ITS,
   /* 21 */ STAGE_ITS_PLUS,
-  
+  /* 21 */ STAGE_TAINT_HAVOC,
   STAGE_NUM_MAX
 
 };
@@ -600,11 +600,8 @@ typedef struct afl_state {
   u32 memlog_id,                        /*           Memlog info            */
       memlog_hits,
       memlog_type,
-      memlog_op_type,
-      memlog_idx_num,
-      memlog_idx;
-  u64 memlog_val;
-
+      memlog_op_type;
+      
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,
       ht_tainted[MEMLOG_HOOK_NUM];
