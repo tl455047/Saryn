@@ -94,7 +94,7 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
 
   u32 i;
   u8  c;
-  for (i = 0; i < len; ++i) {
+  for(i = 0; i < len; ++i) {
 
     // wont help for UTF or non-latin charsets
     do {
@@ -194,7 +194,7 @@ u8 check_unstable(afl_state_t *afl, u8 *orig_buf, u32 len) {
 
   if (unlikely(common_fuzz_memlog_stuff(afl, orig_buf, len))) return 1;
   
-  for (u32 i = 0; i < MEM_MAP_W; i++) {
+  for(u32 i = 0; i < MEM_MAP_W; i++) {
     
     if (afl->shm.mem_map->headers[i].hits != afl->orig_mem_map->headers[i].hits) 
       afl->orig_mem_map->headers[i].hits = 0;    
@@ -237,26 +237,28 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 cur) {
   struct tainted *t = afl->queue_cur->memlog_taint[cur]->taint; 
   u32 use_stacking, r_max, r, temp_len; 
   u8* out_buf;
+  
+  afl->stage_cur_byte = -1;
 
   afl->memlog_id = afl->queue_cur->memlog_taint[cur]->id;
   afl->memlog_hits = afl->queue_cur->memlog_taint[cur]->hits;
   afl->memlog_type = afl->queue_cur->memlog_taint[cur]->inst_type;
   afl->memlog_op_type = afl->queue_cur->memlog_taint[cur]->type;
 
-  // decide fuzz how many times
-  afl->stage_max = 64;
-  // how many times we should fuzz ?
   r_max = 39 + 1;
+  // extra ?
+  
   for(afl->stage_cur = 0; afl->stage_cur < afl->stage_max; afl->stage_cur++) {
     t = afl->queue_cur->memlog_taint[cur]->taint;
-    //restore buf
-    memcpy(buf, orig_buf, len);
     // tainted part only mutate 
     while(t != NULL) {
     
       out_buf = buf + t->pos;
       temp_len = t->len;
       use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
+
+      afl->stage_cur_val = use_stacking;
+
       for(u32 j = 0; j < use_stacking; j++) {
       
         switch ((r = rand_below(afl, r_max))) {
@@ -483,6 +485,8 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 cur) {
 
     // execute
     if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
+    //restore buf
+    memcpy(buf, orig_buf, len);
     
   }
 
@@ -502,7 +506,7 @@ void taint_debug(afl_state_t *afl) {
 
   }fprintf(stderr, "\n");
   
-  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
     fprintf(stderr, "id: %u hits: %u inst type: %u type: %u ", 
                         afl->queue_cur->memlog_taint[i]->id,
@@ -545,7 +549,7 @@ void update_state(afl_state_t *afl) {
   
   // update tainted inst.
   tmp = afl->queue_cur->memlog_taint;
-  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
@@ -622,7 +626,7 @@ void write_to_taint(afl_state_t *afl) {
   tmp = afl->queue_cur->memlog_taint;
   // calculate total length  
   total_len = 0;
-  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     // GEP inst.
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
@@ -642,7 +646,7 @@ void write_to_taint(afl_state_t *afl) {
   // collect all c_bytes to buffer
   mem = ck_alloc(total_len + 1);
   ofs = 0;
-  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {  
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {  
     //GEP inst.
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
@@ -680,7 +684,7 @@ void inference(afl_state_t *afl, u32 ofs) {
   struct hook_operand *o = NULL, *orig_o = NULL;
   u32 loggeds;
 
-  for (u32 k = 0; k < MEM_MAP_W; k++) {
+  for(u32 k = 0; k < MEM_MAP_W; k++) {
     
     // skip inconsistent inst.
     loggeds = MIN((u32)(afl->shm.mem_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
@@ -689,7 +693,7 @@ void inference(afl_state_t *afl, u32 ofs) {
     if (loggeds > MEM_MAP_H) 
       loggeds = MEM_MAP_H;
     
-    for (u32 l = 0; l < loggeds; l++) {
+    for(u32 l = 0; l < loggeds; l++) {
     
       if (afl->shm.mem_map->headers[k].type >= HT_GEP_HOOK) {
         
@@ -742,7 +746,7 @@ void inference(afl_state_t *afl, u32 ofs) {
           break;
         }
         case HT_GEP_HOOK: {  
-          for (u32 idx = 0; idx < va_o->num; idx++) {
+          for(u32 idx = 0; idx < va_o->num; idx++) {
             if (va_o->idx[idx] != orig_va_o->idx[idx]) {
 
               afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
@@ -778,7 +782,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   if(check_unstable(afl, orig_buf, len)) return 1;
 
   // taint
-  for (u32 i = 0; i < len; i++) {
+  for(u32 i = 0; i < len; i++) {
     
     afl->stage_cur_byte = i;
     // reset buffer
@@ -787,7 +791,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     afl->stage_cur += 1;
 
     // for each mutator
-    for (u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
+    for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       // byte-level mutate
       byte_level_mutate(afl, buf, i, j); 
       // execute
@@ -858,9 +862,9 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // taint-inference
     if (taint(afl, buf, orig_buf, len)) {
       // free
-      for (u32 i = 0; i < MEM_MAP_W; i++) {
+      for(u32 i = 0; i < MEM_MAP_W; i++) {
 
-        for (u32 j = 0; j < MEM_MAP_H; j++) {  
+        for(u32 j = 0; j < MEM_MAP_H; j++) {  
           
           if ((*afl->tmp_tainted)[i][j] != NULL) {
             
@@ -893,9 +897,9 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // Construct taint-info list
     afl->queue_cur->memlog_taint = ck_alloc(sizeof(struct tainted_info *) * afl->queue_cur->tainted_cur);
     u32 cur = 0;
-    for (u32 i = 0; i < MEM_MAP_W; i++) {
+    for(u32 i = 0; i < MEM_MAP_W; i++) {
       
-      for (u32 j = 0; j < MEM_MAP_H; j++) {  
+      for(u32 j = 0; j < MEM_MAP_H; j++) {  
       
         if ((*afl->tmp_tainted)[i][j] != NULL) {
             // store per tainted inst. input offset
@@ -915,18 +919,43 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   update_state(afl);
   
   //taint_debug(afl);
+  
   // tainted part only mutation
-  /*afl->stage_name = "taint havoc";
+  /*u64 orig_hit_cnt, orig_execs;
+  u32 inst_stage_max, inst_stage_cur;
+
+  afl->stage_name = "taint havoc";
   afl->stage_short = "th";
-  afl->stage_max = len * TAINT_INFER_MUTATOR_NUM;
   afl->stage_cur = 0;
   
-  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+  afl->stage_max = HAVOC_CYCLES_INIT;
+  inst_stage_max = HAVOC_CYCLES_INIT / afl->queue_cur->tainted_cur;
 
-    //taint_havoc(afl, buf, orig_buf, len, i);
+  if (inst_stage_max < HAVOC_MIN) { 
+  
+    afl->stage_max = HAVOC_MIN * afl->queue_cur->tainted_cur; 
+    inst_stage_max = HAVOC_MIN;
+
+  }
+  
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+  orig_execs = afl->fsrv.total_execs;
+  
+  for(inst_stage_cur = 0; inst_stage_cur < afl->queue_cur->tainted_cur; inst_stage_cur++) {
+
+  }
+  for(afl->stage_cur = 0; afl->stage_cur < afl->stage_max; afl->stage_cur++) {
+    
+    for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+
+        taint_havoc(afl, buf, orig_buf, len, i);
+
+    }
 
   }*/
   
+  // update cnt
+
   // gradient descent
   
   return 0;
