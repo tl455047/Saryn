@@ -444,13 +444,13 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:Y:Z")) >
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:y:Z")) >
          0) {
 
     switch (opt) {
 
       // enable memlog mode
-      case 'Y': {
+      case 'y': {
        
         afl->shm.memlog_mode = 1;
         afl->memlog_binary = ck_strdup(optarg);

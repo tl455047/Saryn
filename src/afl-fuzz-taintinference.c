@@ -56,7 +56,7 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
 
   if ((*afl->tmp_tainted)[id][hits] == NULL) {
     
-    new_info = ck_alloc_nozero(sizeof(struct tainted_info));
+    new_info = ck_alloc(sizeof(struct tainted_info));
     new_info->id = id;
     new_info->hits = hits;
     new_info->inst_type = m_map->headers[id].type;
@@ -490,6 +490,42 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 cur) {
 
 }
 
+void taint_debug(afl_state_t *afl) {
+  
+  struct tainted *t;
+  t = afl->queue_cur->c_bytes;
+  fprintf(stderr, "c_bytes: ");
+  while(t != NULL) {
+      
+    fprintf(stderr, "pos: %u len: %u ", t->pos, t->len);
+    t = t->next;
+
+  }fprintf(stderr, "\n");
+  
+  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+    
+    fprintf(stderr, "id: %u hits: %u inst type: %u type: %u ", 
+                        afl->queue_cur->memlog_taint[i]->id,
+                        afl->queue_cur->memlog_taint[i]->hits,
+                        afl->queue_cur->memlog_taint[i]->inst_type,
+                        afl->queue_cur->memlog_taint[i]->type);
+
+    if (afl->queue_cur->memlog_taint[i]->inst_type == HT_GEP_HOOK)
+      fprintf(stderr, "GEP size: %u ", afl->queue_cur->memlog_taint[i]->size);
+    
+    t = afl->queue_cur->memlog_taint[i]->taint;
+
+    while(t != NULL) {
+      
+      fprintf(stderr, "pos: %u len: %u ", t->pos, t->len);
+      t = t->next;
+
+    }fprintf(stderr, "\n");
+
+  }
+
+}
+
 void update_state(afl_state_t *afl) {
   
   struct tainted *t;
@@ -513,6 +549,116 @@ void update_state(afl_state_t *afl) {
     afl->ht_tainted[tmp[i]->inst_type] += 1;
 
   }
+
+}
+
+void write_to_taint(afl_state_t *afl) {
+  
+  struct tainted *t;
+  struct tainted_info **tmp;
+  u8 *queue_fn = "", *mem;
+  u32 total_len, ofs;
+  s32 fd, len;
+  
+  // critical bytes 
+
+  // calculate total length of buffer 
+  total_len = 0;
+  t = afl->queue_cur->c_bytes;
+  while(t != NULL) {
+  
+    len = snprintf(NULL, 0, "%u,%u\n", t->pos, t->len);
+
+    if (len < 0)
+      FATAL("Whoa, snprintf() fails?!"); 
+
+    total_len += len;
+    t = t->next;
+  
+  }
+
+  // collect all c_bytes to buffer
+  mem = ck_alloc(total_len + 1);
+  ofs = 0;
+  t = afl->queue_cur->c_bytes;
+  while(t != NULL) {
+    
+    len = snprintf(mem + ofs, total_len, "%u,%u\n", t->pos, t->len);
+      
+    if (len < 0) 
+      FATAL("Whoa, snprintf() fails?!"); 
+
+    ofs += len;
+    t = t->next;
+
+  }
+  
+  // write all critical bytes to file  
+  queue_fn = alloc_printf(
+    "%s/taint/id:%06u,%06u", afl->out_dir, afl->queue_cur->id,
+    afl->tainted_len);
+
+  fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
+  ck_write(fd, mem, total_len, queue_fn);
+
+  close(fd);
+  ck_free(mem);
+  ck_free(queue_fn);
+  
+  // GEP size
+  tmp = afl->queue_cur->memlog_taint;
+  // calculate total length  
+  total_len = 0;
+  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+    // GEP inst.
+    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      continue;
+    
+    if (tmp[i]->inst_type == HT_GEP_HOOK) {
+      
+      len = snprintf(NULL, 0, "%u,%u\n", tmp[i]->id, tmp[i]->size);
+    
+      if (len < 0)
+        FATAL("Whoa, snprintf() fails?!"); 
+      
+      total_len += len;
+
+    }
+  } 
+  
+  // collect all c_bytes to buffer
+  mem = ck_alloc(total_len + 1);
+  ofs = 0;
+  for (u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {  
+    //GEP inst.
+    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      continue;
+      
+    if (tmp[i]->inst_type == HT_GEP_HOOK) {
+    
+      len = snprintf(mem + ofs, total_len, "%u,%u\n", tmp[i]->id, tmp[i]->size);
+        
+      if (len < 0) 
+        FATAL("Whoa, snprintf() fails?!"); 
+
+      ofs += len;
+    
+    }
+  }
+  
+  // write all critical bytes to file  
+  queue_fn = alloc_printf(
+    "%s/taint/size/id:%06u,%06u", afl->out_dir, afl->queue_cur->id,
+    afl->tainted_len);
+  
+  fd = open(queue_fn, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+  if (unlikely(fd < 0)) { PFATAL("Unable to create '%s'", queue_fn); }
+  ck_write(fd, mem, total_len, queue_fn);
+
+  close(fd);
+  ck_free(mem);
+  ck_free(queue_fn);
 
 }
 
@@ -686,7 +832,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     afl->tmp_tainted = ck_alloc(sizeof(tainted_map));
 
   }
-  memset(*afl->tmp_tainted, 0, sizeof(struct tainted_info *) * MEM_MAP_W * MEM_MAP_H);
+  memset(afl->tmp_tainted, 0, sizeof(struct tainted_info *) * MEM_MAP_W * MEM_MAP_H);
 
   // orig mem_map
   if (unlikely(!afl->orig_mem_map)) {
@@ -701,22 +847,30 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     if (taint(afl, buf, orig_buf, len)) {
       // free
       for (u32 i = 0; i < MEM_MAP_W; i++) {
+        
         for (u32 j = 0; j < MEM_MAP_H; j++) {  
+          
           if ((*afl->tmp_tainted)[i][j] != NULL) {
             
             t = (*afl->tmp_tainted)[i][j]->taint;
+            
             while(t != NULL) {   
+
               (*afl->tmp_tainted)[i][j]->taint = t->next;
               ck_free(t);
               t = (*afl->tmp_tainted)[i][j]->taint;
+            
             }
+            
             (*afl->tmp_tainted)[i][j]->taint = NULL;
 
             ck_free((*afl->tmp_tainted)[i][j]);
             (*afl->tmp_tainted)[i][j] = NULL;
 
           }
+        
         }
+      
       }
       return 1;
     
@@ -742,10 +896,14 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
+
   update_state(afl);
+  // write c_byte to file
+  write_to_taint(afl);
   
+  //taint_debug(afl);
   // tainted part only mutation
-  afl->stage_name = "taint havoc";
+  /*afl->stage_name = "taint havoc";
   afl->stage_short = "th";
   afl->stage_max = len * TAINT_INFER_MUTATOR_NUM;
   afl->stage_cur = 0;
@@ -754,7 +912,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     //taint_havoc(afl, buf, orig_buf, len, i);
 
-  }
+  }*/
   
   // gradient descent
   

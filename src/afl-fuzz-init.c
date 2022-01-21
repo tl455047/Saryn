@@ -1724,6 +1724,14 @@ static void handle_existing_out_dir(afl_state_t *afl) {
   fn = alloc_printf("%s/queue", afl->out_dir);
   if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
   ck_free(fn);
+  
+  fn = alloc_printf("%s/taint/size", afl->out_dir);
+  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  ck_free(fn);
+
+  fn = alloc_printf("%s/taint", afl->out_dir);
+  if (delete_files(fn, CASE_PREFIX)) { goto dir_cleanup_failed; }
+  ck_free(fn);
 
   /* All right, let's do <afl->out_dir>/crashes/id:* and
    * <afl->out_dir>/hangs/id:*. */
@@ -2016,6 +2024,20 @@ void setup_dirs_fds(afl_state_t *afl) {
   tmp = alloc_printf("%s/hangs", afl->out_dir);
   if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
   ck_free(tmp);
+
+  /* All recorded critical bytes */
+  
+  if (afl->shm.memlog_mode) {
+    
+    tmp = alloc_printf("%s/taint", afl->out_dir);
+    if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+    tmp = alloc_printf("%s/taint/size", afl->out_dir);
+    if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }
+    ck_free(tmp);
+
+  }
 
   /* Generally useful file descriptors. */
 

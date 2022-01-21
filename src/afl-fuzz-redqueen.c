@@ -2914,7 +2914,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 *test_cksum;
   u32 taint_len = 0, untaint_len = 0, cksum_cur = 0, is_exist = 0;
   u64 cksum = 0;
-  struct tainted **cmplog_taint;
+  struct tainted **cmplog_taint = NULL;
+
   
   memcpy(buf, orig_buf, len);
   if (afl->queue_cur->cmplog_taint == NULL) {

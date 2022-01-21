@@ -160,7 +160,6 @@ struct tainted_info {
   u32 size;
   u32 idx;
   struct tainted *taint;
-  struct tainted_info *next;
   
 };
 
