@@ -669,6 +669,39 @@ void taint_debug(afl_state_t *afl) {
 
 }
 
+void taint_failed(afl_state_t *afl) {
+  
+  struct tainted *t;
+
+  for(u32 i = 0; i < MEM_MAP_W; i++) {
+
+    for(u32 j = 0; j < MEM_MAP_H; j++) {  
+      
+      if ((*afl->tmp_tainted)[i][j] != NULL) {
+        
+        t = (*afl->tmp_tainted)[i][j]->taint;
+        
+        while(t != NULL) {   
+
+          (*afl->tmp_tainted)[i][j]->taint = t->next;
+          ck_free(t);
+          t = (*afl->tmp_tainted)[i][j]->taint;
+        
+        }
+        
+        (*afl->tmp_tainted)[i][j]->taint = NULL;
+
+        ck_free((*afl->tmp_tainted)[i][j]);
+        (*afl->tmp_tainted)[i][j] = NULL;
+
+      }
+    
+    }
+  
+  }
+
+}
+
 void update_state(afl_state_t *afl) {
   
   struct tainted *t;
@@ -932,7 +965,6 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     // for each mutator
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       // byte-level mutate
-      byte_level_mutate(afl, buf, i, j); 
       // execute
       if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) continue;
 
@@ -1000,32 +1032,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // taint-inference
     if (taint(afl, buf, orig_buf, len)) {
       // free
-      for(u32 i = 0; i < MEM_MAP_W; i++) {
-
-        for(u32 j = 0; j < MEM_MAP_H; j++) {  
-          
-          if ((*afl->tmp_tainted)[i][j] != NULL) {
-            
-            t = (*afl->tmp_tainted)[i][j]->taint;
-            
-            while(t != NULL) {   
-
-              (*afl->tmp_tainted)[i][j]->taint = t->next;
-              ck_free(t);
-              t = (*afl->tmp_tainted)[i][j]->taint;
-            
-            }
-            
-            (*afl->tmp_tainted)[i][j]->taint = NULL;
-
-            ck_free((*afl->tmp_tainted)[i][j]);
-            (*afl->tmp_tainted)[i][j] = NULL;
-
-          }
-        
-        }
+      taint_failed(afl);
       
-      }
       return 1;
     
     }
