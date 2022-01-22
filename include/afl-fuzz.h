@@ -157,9 +157,17 @@ struct tainted_info {
   u32 hits;
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
+  struct tainted  *taint;
+
+  // for GEP inst.
+  struct tainted_gep_info *gep;
+
+};
+
+struct tainted_gep_info {
+  
   u32 size;
   u8  num_of_idx;
-  struct tainted  *taint;
   struct tainted **idx_taint;
 
 };
@@ -264,6 +272,7 @@ enum {
   /* 20 */ STAGE_ITS,
   /* 21 */ STAGE_ITS_PLUS,
   /* 21 */ STAGE_TAINT_HAVOC,
+  /* 22 */ STAGE_TAINT_LS,
   STAGE_NUM_MAX
 
 };

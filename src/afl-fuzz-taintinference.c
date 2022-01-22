@@ -63,11 +63,12 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
     new_info->type = type;
   
     if (m_map->headers[id].type == HT_GEP_HOOK) {
-    
-      new_info->size = m_map->log[id][hits].__hook_va_arg.size;
-      new_info->num_of_idx = m_map->headers[id].num_of_idx;
-      new_info->idx_taint = ck_alloc(sizeof(struct tainted *) * new_info->num_of_idx);
-      new_info->idx_taint[idx] = add_tainted(new_info->idx_taint[idx], ofs, 1);
+      
+      new_info->gep = ck_alloc(sizeof(struct tainted_gep_info));
+      new_info->gep->size = m_map->log[id][hits].__hook_va_arg.size;
+      new_info->gep->num_of_idx = m_map->headers[id].num_of_idx;
+      new_info->gep->idx_taint = ck_alloc(sizeof(struct tainted *) * new_info->gep->num_of_idx);
+      new_info->gep->idx_taint[idx] = add_tainted(new_info->gep->idx_taint[idx], ofs, 1);
 
     }
 
@@ -82,7 +83,7 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
     
     if (m_map->headers[id].type == HT_GEP_HOOK) {
 
-      (*afl->tmp_tainted)[id][hits]->idx_taint[idx] = add_tainted((*afl->tmp_tainted)[id][hits]->idx_taint[idx], ofs, 1);
+      (*afl->tmp_tainted)[id][hits]->gep->idx_taint[idx] = add_tainted((*afl->tmp_tainted)[id][hits]->gep->idx_taint[idx], ofs, 1);
 
     }
 
@@ -744,7 +745,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
 
   if (tmp->inst_type == HT_GEP_HOOK) {
 
-    t = tmp->idx_taint[idx];
+    t = tmp->gep->idx_taint[idx];
 
   }
   else 
@@ -778,6 +779,8 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
 
   }
 
+  show_stats(afl);
+
   return 0;
 
 }
@@ -803,7 +806,7 @@ void taint_debug(afl_state_t *afl) {
                         afl->queue_cur->memlog_taint[i]->type);
 
     if (afl->queue_cur->memlog_taint[i]->inst_type == HT_GEP_HOOK)
-      fprintf(stderr, "GEP size: %u ", afl->queue_cur->memlog_taint[i]->size);
+      fprintf(stderr, "GEP size: %u ", afl->queue_cur->memlog_taint[i]->gep->size);
     
     t = afl->queue_cur->memlog_taint[i]->taint;
 
@@ -814,39 +817,6 @@ void taint_debug(afl_state_t *afl) {
 
     }fprintf(stderr, "\n");
 
-  }
-
-}
-
-void taint_failed(afl_state_t *afl) {
-  
-  struct tainted *t;
-
-  for(u32 i = 0; i < MEM_MAP_W; i++) {
-
-    for(u32 j = 0; j < MEM_MAP_H; j++) {  
-      
-      if ((*afl->tmp_tainted)[i][j] != NULL) {
-        
-        t = (*afl->tmp_tainted)[i][j]->taint;
-        
-        while(t != NULL) {   
-
-          (*afl->tmp_tainted)[i][j]->taint = t->next;
-          ck_free(t);
-          t = (*afl->tmp_tainted)[i][j]->taint;
-        
-        }
-        
-        (*afl->tmp_tainted)[i][j]->taint = NULL;
-
-        ck_free((*afl->tmp_tainted)[i][j]);
-        (*afl->tmp_tainted)[i][j] = NULL;
-
-      }
-    
-    }
-  
   }
 
 }
@@ -954,7 +924,7 @@ void write_to_taint(afl_state_t *afl) {
     
     if (tmp[i]->inst_type == HT_GEP_HOOK) {
       
-      len = snprintf(NULL, 0, "%u,%u\n", tmp[i]->id, tmp[i]->size);
+      len = snprintf(NULL, 0, "%u,%u\n", tmp[i]->id, tmp[i]->gep->size);
     
       if (len < 0)
         FATAL("Whoa, snprintf() fails?!"); 
@@ -974,7 +944,7 @@ void write_to_taint(afl_state_t *afl) {
       
     if (tmp[i]->inst_type == HT_GEP_HOOK) {
     
-      len = snprintf(mem + ofs, total_len, "%u,%u\n", tmp[i]->id, tmp[i]->size);
+      len = snprintf(mem + ofs, total_len, "%u,%u\n", tmp[i]->id, tmp[i]->gep->size);
         
       if (len < 0) 
         FATAL("Whoa, snprintf() fails?!"); 
@@ -1010,12 +980,14 @@ void inference(afl_state_t *afl, u32 ofs) {
     // skip inconsistent inst.
     loggeds = MIN((u32)(afl->shm.mem_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
     if (!loggeds) continue;
-
+ 
     if (loggeds > MEM_MAP_H) 
       loggeds = MEM_MAP_H;
     
     for(u32 l = 0; l < loggeds; l++) {
-    
+      
+      if (afl->orig_mem_map->cksum[k][l] != afl->shm.mem_map->cksum[k][l]) continue;
+   
       if (afl->shm.mem_map->headers[k].type >= HT_GEP_HOOK) {
         
         va_o = &afl->shm.mem_map->log[k][l].__hook_va_arg;
@@ -1136,7 +1108,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
        
       // directly use mem_map afl bitmap
       exec_cksum = hash64(afl->memlog_fsrv.trace_bits, afl->memlog_fsrv.map_size, HASH_CONST);
-      if (exec_cksum != cksum) continue;
+      //if (exec_cksum != cksum) continue;
 
       // infer result
       inference(afl, i);
@@ -1182,9 +1154,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     if (taint(afl, buf, orig_buf, len)) {
       
       afl->queue_cur->tainted_failed++;
-      // free
-      taint_failed(afl);
-      
+    
       return 1;
     
     }
@@ -1219,7 +1189,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   else if(afl->queue_cur->tainted_failed) {
 
     return 0;
-    
+
   }
 
   update_state(afl);
@@ -1264,9 +1234,9 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     tmp = afl->queue_cur->memlog_taint[i];
     if (tmp->inst_type == HT_GEP_HOOK) {
 
-      for(u32 j = 0; j < tmp->num_of_idx; j++) {
+      for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
         
-        t = tmp->idx_taint[j];
+        t = tmp->gep->idx_taint[j];
         while(t != NULL) {
         
           afl->stage_max += t->len;
@@ -1305,10 +1275,14 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
  
     if (tmp->inst_type == HT_GEP_HOOK) {
 
-      for(u32 j = 0; j < tmp->num_of_idx; j++) {
+      for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
+        
+        if (tmp->gep->idx_taint[j] != NULL) {
+          
+          if (linear_search(afl, buf, len, i, j)) return 1;
+        
+        }
 
-        if (linear_search(afl, buf, len, i, j)) return 1;
-      
       }
 
     }
@@ -1319,6 +1293,10 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
     
   }
+  
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
+  afl->stage_finds[STAGE_TAINT_LS] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;
 
   return 0;
 

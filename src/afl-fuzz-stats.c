@@ -1198,9 +1198,12 @@ void show_stats(afl_state_t *afl) {
   /* taint inference */
   if (afl->shm.memlog_mode == 1) {
 
-    sprintf(tmp, "%s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
-                              u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]));
-    SAYF("\n"SET_G1 bSTG bV bSTOP "          th : " cRST "%-36s " bSTG bV"\n", tmp);
+    sprintf(tmp, "%s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
+                                u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]),
+                                u_stringify_int(IB(2), afl->stage_finds[STAGE_TAINT_LS]),
+                                u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]));
+
+    SAYF("\n"SET_G1 bSTG bV bSTOP "      th/tls : " cRST "%-36s " bSTG bV"\n", tmp);
 
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->unstable_len);
