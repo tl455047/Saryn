@@ -158,9 +158,10 @@ struct tainted_info {
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
   u32 size;
-  u32 idx;
-  struct tainted *taint;
-  
+  u8  num_of_idx;
+  struct tainted  *taint;
+  struct tainted **idx_taint;
+
 };
 
 typedef struct tainted_info* tainted_map[MEM_MAP_W][MEM_MAP_H];
@@ -204,13 +205,18 @@ struct queue_entry {
 
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
-  u8 *            cmplog_colorinput;    /* the result buf of colorization   */
-  struct tainted *taint;                /* Taint information from CmpLog    */
-  struct tainted **cmplog_taint;        /* Taint information from bytes discarded by colorization */
-  u32             cksum_cur;            /* number of unique paths from bytes discarded by colorization */
-  struct tainted *c_bytes;              /* total tainted ofs for Memlog     */
+  u8 *             cmplog_colorinput;   /* the result buf of colorization   */
+  struct tainted  *taint;               /* Taint information from CmpLog    */
+  struct tainted **extra_taint;         /* extra Taint information          */
+  u32              cksum_cur;           /* unique paths from extra taint    */
+                                        
+                                        /* Taint Inference                  */               
+  struct tainted       *c_bytes;        /* total tainted ofs                */
   struct tainted_info **memlog_taint;   /* Taint information from Memlog    */
-  u32             tainted_cur;
+  struct tainted_info **cmplog_taint;   /* Taint information from Cmplog    */
+  u32                   tainted_cur;    /* total tainted inst.              */
+  u8                    tainted_failed; /* failed to taint                  */
+  
   struct queue_entry *mother;           /* queue entry this based on        */
 
 };

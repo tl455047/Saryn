@@ -49,7 +49,7 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
 }
 
-static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs) {
+static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 idx) {
   
   struct tainted_info *new_info;
   struct mem_map *m_map = afl->shm.mem_map;
@@ -61,9 +61,16 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
     new_info->hits = hits;
     new_info->inst_type = m_map->headers[id].type;
     new_info->type = type;
-    if (m_map->headers[id].type == HT_GEP_HOOK)
-        new_info->size = m_map->log[id][hits].__hook_va_arg.size;
-    // idx ?  
+  
+    if (m_map->headers[id].type == HT_GEP_HOOK) {
+    
+      new_info->size = m_map->log[id][hits].__hook_va_arg.size;
+      new_info->num_of_idx = m_map->headers[id].num_of_idx;
+      new_info->idx_taint = ck_alloc(sizeof(struct tainted *) * new_info->num_of_idx);
+      new_info->idx_taint[idx] = add_tainted(new_info->idx_taint[idx], ofs, 1);
+
+    }
+
     new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
     (*afl->tmp_tainted)[id][hits] = new_info;
@@ -73,6 +80,12 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
   }
   else {
     
+    if (m_map->headers[id].type == HT_GEP_HOOK) {
+
+      (*afl->tmp_tainted)[id][hits]->idx_taint[idx] = add_tainted((*afl->tmp_tainted)[id][hits]->idx_taint[idx], ofs, 1);
+
+    }
+
     (*afl->tmp_tainted)[id][hits]->taint = add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, 1);
     
   }
@@ -633,30 +646,140 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
 }
 
-u8 taint_grad(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, u32 cur) {
+u32 get_val(afl_state_t *afl, u32 cur, u8 idx) {
+
+  struct tainted_info *tmp;
+  struct hook_operand *o = NULL;
+  struct hook_va_arg_operand *va_o = NULL;
+  u32 val = 0;
+
+  tmp = afl->queue_cur->memlog_taint[cur];
+
+  if (tmp->inst_type >= HT_GEP_HOOK) {
+        
+    va_o = &afl->shm.mem_map->log[tmp->id][tmp->hits].__hook_va_arg;
+    
+  }
+  else {
+
+    o = &afl->shm.mem_map->log[tmp->id][tmp->hits].__hook_op;
+        
+  }
+
+  switch(tmp->type) {
+
+    case MEMLOG_IDX: {
+
+      val = va_o->idx[idx];
+      break;
+
+    }
+    case MEMLOG_SIZE: {
+
+      val = o->size;
+      break;
+
+    }
+    default:
+      break;
+
+  }
+
+  return val;
+
+}
+
+/**
+ * 
+ * f'(x) = [v(x+u) - v(x)] / [u]
+ * 
+ * if u == 1
+ * 
+ * f'(x) = [v(x+1) - v(x)]
+ * 
+ */
+u8 choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u32 ofs, u8 idx, u32 v0, u8* ops) {
+
+  u32 v1;
+  // buf[i + 1] exec  
+  byte_level_mutate(afl, buf, ofs, 1);
+  if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
+  v1 = get_val(afl, cur, idx);
+
+  if (v1 > v0) {
+    
+    *ops = 1;
+    return 0;
+
+  }
+  // restore buffer
+  byte_level_mutate(afl, buf, ofs, 3);
+
+  // buf[i - 1] exec  
+  byte_level_mutate(afl, buf, ofs, 3);
+  if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
+  v1 = get_val(afl, cur, idx);
+
+  if (v1 > v0) {
+    
+    *ops = 3;
+    return 0;
+
+  }
+  // restore buffer
+  byte_level_mutate(afl, buf, ofs, 1);
+
+  return 1;
+
+}
+
+u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
 
   struct tainted *t; 
-  s32 grad;
+  struct tainted_info *tmp;
+  u32 v0, v1;
+  u8 ops;
 
-  afl->memlog_id = afl->queue_cur->memlog_taint[cur]->id;
-  afl->memlog_hits = afl->queue_cur->memlog_taint[cur]->hits;
-  afl->memlog_type = afl->queue_cur->memlog_taint[cur]->inst_type;
-  afl->memlog_op_type = afl->queue_cur->memlog_taint[cur]->type;
+  tmp = afl->queue_cur->memlog_taint[cur];
 
-  while (afl->stage_cur < (cur + 1) * stage_max) {
+  if (tmp->inst_type == HT_GEP_HOOK) {
+
+    t = tmp->idx_taint[idx];
+
+  }
+  else 
+    t = tmp->taint;
+  
+  v0 = get_val(afl, cur, idx);
+
+  while(t != NULL) {
     
     afl->stage_cur++;
-    // calculate gradient
-    //if (cal_grad()) continue;
+    for(u32 i = 0; i < t->len; i++) {
+      
+      if (choose_move_ops(afl, buf, len, cur, t->pos + i, idx, v0, &ops)) continue;
+
+      while (1) {
+        
+        byte_level_mutate(afl, buf, t->pos + i, ops);
+        // exec
+        if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
+        v1 = get_val(afl, cur, idx);
+        
+        if (v1 <= v0)
+          break;
+
+        v0 = v1;
+
+      }
     
-    //if (grad != 0) {
+    }
+    t = t->next;
 
-      // discend
-
-    //}
   }
 
   return 0;
+
 }
 
 void taint_debug(afl_state_t *afl) {
@@ -912,7 +1035,7 @@ void inference(afl_state_t *afl, u32 ofs) {
           if (o->size != orig_o->size) {
             
             afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
-            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs);
+            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs, 0);
 
           }
           break;
@@ -925,7 +1048,7 @@ void inference(afl_state_t *afl, u32 ofs) {
           if (o->size != orig_o->size) {
             
             afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
-            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs);
+            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs, 0);
 
           }
           break;
@@ -934,7 +1057,7 @@ void inference(afl_state_t *afl, u32 ofs) {
           if (o->size != orig_o->size) {
 
             afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
-            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs);
+            add_tainted_info(afl, k, l, MEMLOG_SIZE, ofs, 0);
 
           }
           break;
@@ -944,11 +1067,11 @@ void inference(afl_state_t *afl, u32 ofs) {
           break;
         }
         case HT_GEP_HOOK: {  
-          for(u32 idx = 0; idx < va_o->num; idx++) {
+          for(u32 idx = 0; idx < afl->shm.mem_map->headers[k].num_of_idx; idx++) {
             if (va_o->idx[idx] != orig_va_o->idx[idx]) {
 
               afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
-              add_tainted_info(afl, k, l, MEMLOG_IDX, ofs);
+              add_tainted_info(afl, k, l, MEMLOG_IDX, ofs, idx);
             
             }
           }
@@ -1052,10 +1175,13 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     afl->orig_mem_map = ck_alloc(sizeof(struct mem_map));
   
   }
-  
-  if (afl->queue_cur->memlog_taint == NULL) {
+  memset(afl->orig_mem_map, 0, sizeof(struct mem_map));
+
+  if (afl->queue_cur->memlog_taint == NULL && !afl->queue_cur->tainted_failed) {
     // taint-inference
     if (taint(afl, buf, orig_buf, len)) {
+      
+      afl->queue_cur->tainted_failed++;
       // free
       taint_failed(afl);
       
@@ -1063,8 +1189,13 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     }
     
-    if (!afl->queue_cur->tainted_cur) return 0;
+    if (!afl->queue_cur->tainted_cur) {
+      
+      afl->queue_cur->tainted_failed++;
+
+      return 0;
     
+    }
     // Construct taint-info list
     afl->queue_cur->memlog_taint = ck_alloc(sizeof(struct tainted_info *) * afl->queue_cur->tainted_cur);
     u32 cur = 0;
@@ -1085,10 +1216,10 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     write_to_taint(afl);
 
   }
-  else if(!afl->queue_cur->tainted_cur) {
+  else if(afl->queue_cur->tainted_failed) {
 
     return 0;
-
+    
   }
 
   update_state(afl);
@@ -1108,8 +1239,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
-  
-  afl->stage_cur = 0;
+
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
     if (taint_havoc(afl, buf, orig_buf, len, inst_stage_max, i)) return 1;
@@ -1120,23 +1250,75 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_finds[STAGE_TAINT_HAVOC] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_TAINT_HAVOC] += afl->fsrv.total_execs - orig_execs;
 
-  // gradient descent
-  /*afl->stage_name = "taint grad";
-  afl->stage_short = "tg";
-  afl->stage_cur = 0;
-
-  afl->stage_max = HAVOC_CYCLES_INIT * 4;
-  inst_stage_max = afl->stage_max / afl->queue_cur->tainted_cur;
-
+  // linear search
+  struct tainted *t;
+  struct tainted_info *tmp;
+  afl->stage_name = "linear search";
+  afl->stage_short = "ls";
+  
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
-  
-  afl->stage_cur = 0;
+
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
-    if (taint_grad(afl, buf, orig_buf, len, inst_stage_max, i)) return 1;
+    tmp = afl->queue_cur->memlog_taint[i];
+    if (tmp->inst_type == HT_GEP_HOOK) {
 
-  }*/
+      for(u32 j = 0; j < tmp->num_of_idx; j++) {
+        
+        t = tmp->idx_taint[j];
+        while(t != NULL) {
+        
+          afl->stage_max += t->len;
+          t = t->next; 
+        
+        }
+      
+      }
+
+    }
+    else {
+
+      t = tmp->taint;
+      while(t != NULL) {
+        
+        afl->stage_max += t->len;
+        t = t->next; 
+        
+      }
+
+    }
+    
+  }
+
+  for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
+    
+    memcpy(buf, orig_buf, len);
+    
+    memcpy(afl->shm.mem_map, afl->orig_mem_map, sizeof(struct mem_map));
+
+    tmp = afl->queue_cur->memlog_taint[i];
+    afl->memlog_id = tmp->id;
+    afl->memlog_hits = tmp->hits;
+    afl->memlog_type = tmp->inst_type;
+    afl->memlog_op_type = tmp->type;
+ 
+    if (tmp->inst_type == HT_GEP_HOOK) {
+
+      for(u32 j = 0; j < tmp->num_of_idx; j++) {
+
+        if (linear_search(afl, buf, len, i, j)) return 1;
+      
+      }
+
+    }
+    else {
+
+      if (linear_search(afl, buf, len, i, 0)) return 1;
+
+    }
+    
+  }
 
   return 0;
 

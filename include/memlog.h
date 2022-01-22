@@ -37,6 +37,7 @@ struct mem_header {
   unsigned int id;
   //type
   unsigned int type : 4;
+  unsigned int num_of_idx : 4;
   
 } __attribute__((packed));
 
@@ -62,7 +63,6 @@ struct hook_va_arg_operand {
   
   void* ptr;
   unsigned long long size;
-  unsigned int num;
   unsigned int idx[MEM_MAP_MAX_IDX];
 
 } __attribute__((packed));

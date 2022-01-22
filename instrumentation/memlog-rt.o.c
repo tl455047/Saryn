@@ -314,6 +314,14 @@ void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 num_of_idx, ...) {
     // used for hash calculating
     __afl_mem_map->hits[id] = 1;
 
+    // discard idx more than MEM_MAP_MAX_IDX
+    if (num_of_idx > MEM_MAP_MAX_IDX)
+      logged = MEM_MAP_MAX_IDX;
+    else
+      logged = num_of_idx;
+    
+    __afl_mem_map->headers[id].num_of_idx = logged;
+
   }
   else {
     
@@ -321,6 +329,8 @@ void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 num_of_idx, ...) {
     // used for hash calculating
     __afl_mem_map->hits[id]++;
 
+    logged = __afl_mem_map->headers[id].num_of_idx;
+    
   }
   
   hits &= MEM_MAP_H - 1;
@@ -328,18 +338,11 @@ void __memlog_get_element_ptr_hook(u32 id, void* ptr, u32 num_of_idx, ...) {
   // can be used to distinguish different path
   __afl_mem_map->cksum[id][hits] = hash64((void *)__memlog_cksum_map, __memlog_cksum_map_size, HASH_CONST);
 
-  // discard idx more than MEM_MAP_MAX_IDX
-  if (num_of_idx > MEM_MAP_MAX_IDX)
-    logged = MEM_MAP_MAX_IDX;
-  else
-    logged = num_of_idx;
-
   // dump ptr, size
   __hook_va_arg = &__afl_mem_map->log[id][hits].__hook_va_arg;
   __hook_va_arg->ptr = ptr;
   __asan_locate_address(ptr, NULL, 0, &out, &size);
   __hook_va_arg->size = size;
-  __hook_va_arg->num = logged;
   
   // dump idx
   va_start(args, num_of_idx);

@@ -1079,9 +1079,9 @@ void show_stats(afl_state_t *afl) {
     strcat(tmp, "/");
     strcat(tmp, u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS]));
     strcat(tmp, ", ");
-    strcat(tmp, u_stringify_int(IB(6), afl->stage_finds[STAGE_ITS_PLUS]));
+    strcat(tmp, u_stringify_int(IB(8), afl->stage_finds[STAGE_ITS_PLUS]));
     strcat(tmp, "/");
-    strcat(tmp, u_stringify_int(IB(7), afl->stage_cycles[STAGE_ITS_PLUS]));
+    strcat(tmp, u_stringify_int(IB(9), afl->stage_cycles[STAGE_ITS_PLUS]));
 
   } else {
 
@@ -1198,7 +1198,8 @@ void show_stats(afl_state_t *afl) {
   /* taint inference */
   if (afl->shm.memlog_mode == 1) {
 
-    sprintf(tmp, "%llu/%llu", afl->stage_finds[STAGE_TAINT_HAVOC], afl->stage_cycles[STAGE_TAINT_HAVOC]);
+    sprintf(tmp, "%s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
+                              u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]));
     SAYF("\n"SET_G1 bSTG bV bSTOP "          th : " cRST "%-36s " bSTG bV"\n", tmp);
 
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         

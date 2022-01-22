@@ -2776,7 +2776,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   // Start insertion loop
   u32 cksum_cur = 0;
-  struct tainted **cmplog_taint = NULL;
+  struct tainted **extra_taint = NULL;
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
@@ -2930,7 +2930,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 cksum = 0;
   
   memcpy(buf, orig_buf, len);
-  if (afl->queue_cur->cmplog_taint == NULL) {
+  if (afl->queue_cur->extra_taint == NULL) {
 
     // calculate how many bytes colorization discards 
     t = taint;
@@ -2943,9 +2943,9 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     untaint_len = len - taint_len;
 
     test_cksum = ck_alloc(sizeof(u64) * untaint_len);
-    cmplog_taint = ck_alloc(sizeof(struct tainted *) * untaint_len);
+    extra_taint = ck_alloc(sizeof(struct tainted *) * untaint_len);
     memset(test_cksum, 0, sizeof(u64) * untaint_len);
-    memset(cmplog_taint, 0, sizeof(struct tainted *) * untaint_len);
+    memset(extra_taint, 0, sizeof(struct tainted *) * untaint_len);
     
     t = taint;
     while (t->next != NULL) {
@@ -2982,7 +2982,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
         if (test_cksum[j] == cksum) {
 
-          cmplog_taint[j] = add_tainted(cmplog_taint[j], i, 1);
+          extra_taint[j] = add_tainted(extra_taint[j], i, 1);
           is_exist = 1;
           break;
 
@@ -2992,7 +2992,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
       if (!is_exist) {
         
-        cmplog_taint[cksum_cur] = add_tainted(cmplog_taint[cksum_cur], i, 1);
+        extra_taint[cksum_cur] = add_tainted(extra_taint[cksum_cur], i, 1);
         test_cksum[cksum_cur++] = cksum;
       
       }
@@ -3003,13 +3003,13 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     free(test_cksum);
 
-    afl->queue_cur->cmplog_taint = cmplog_taint;
+    afl->queue_cur->extra_taint = extra_taint;
     afl->queue_cur->cksum_cur = cksum_cur;
 
   }
   else {
 
-    cmplog_taint = afl->queue_cur->cmplog_taint;
+    extra_taint = afl->queue_cur->extra_taint;
     cksum_cur = afl->queue_cur->cksum_cur;
 
   }
@@ -3034,7 +3034,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     // we only need to exec cmplog_stuff n path times
     // we can mutate all offsets in one time, since all offsets lead to same path 
     // mutate all offsets
-    t = cmplog_taint[i];  
+    t = extra_taint[i];  
     while(t != NULL) {
 
       type_replace(afl, buf + t->pos, t->len);
@@ -3084,7 +3084,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
     // set offset
-    t = cmplog_taint[i];
+    t = extra_taint[i];
     for (k = 0; k < CMP_MAP_W; ++k) {
 
       if (!afl->shm.cmp_map->headers[k].hits) { continue; }
@@ -3119,7 +3119,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     }
 
     // restore buf
-    t = cmplog_taint[i];  
+    t = extra_taint[i];  
     while(t != NULL) {
 
       memcpy(buf + t->pos, orig_buf + t->pos, t->len);
@@ -3153,21 +3153,21 @@ exit_its:
 
     afl->queue_cur->taint = NULL;
 
-    if (afl->queue_cur->cmplog_taint != NULL) {
+    if (afl->queue_cur->extra_taint != NULL) {
       
       for (u32 i = 0; i < cksum_cur; i++) {
         
-        while(cmplog_taint[i]) {
+        while(extra_taint[i]) {
 
-          t = cmplog_taint[i]->next;
-          ck_free(cmplog_taint[i]);
-          cmplog_taint[i] = t;
+          t = extra_taint[i]->next;
+          ck_free(extra_taint[i]);
+          extra_taint[i] = t;
 
         }
 
       }
 
-      afl->queue_cur->cmplog_taint = NULL;
+      afl->queue_cur->extra_taint = NULL;
     
     }
 
