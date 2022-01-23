@@ -221,8 +221,8 @@ struct queue_entry {
                                         
                                         /* Taint Inference                  */               
   struct tainted       *c_bytes;        /* total tainted ofs                */
-  struct tainted_info **memlog_taint;   /* Taint information from Memlog    */
-  struct tainted_info **cmplog_taint;   /* Taint information from Cmplog    */
+  struct tainted_info **mem_taint;      /* Taint information from Memlog    */
+  struct tainted_info **cmp_taint;      /* Taint information from Cmplog    */
   u32                   tainted_cur;    /* total tainted inst.              */
   u8                    tainted_failed; /* failed to taint                  */
   
@@ -707,6 +707,7 @@ typedef struct afl_state {
   u8  cmplog_enable_arith, cmplog_enable_transform;
 
   struct afl_pass_stat *pass_stats;
+  struct afl_pass_stat *mem_pass_stats;
   struct cmp_map *      orig_cmp_map;
   struct mem_map *      orig_mem_map;
 

@@ -1,6 +1,8 @@
 #include "afl-fuzz.h"
 #include "memlog.h"
 
+#define SLIGHT_TAINTED 8
+
 #define FLIP_BIT(_ar, _b)                   \
   do {                                      \
                                             \
@@ -304,43 +306,72 @@ static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, u32 cur) {
    
   struct tainted *t; 
-  u32 use_stacking, r_max, r, r_part, temp_len, parts; 
+  s32 r_part;
+  u32 use_stacking, r_max, r, temp_len, parts, t_len; 
   u8* out_buf;
 
-  afl->memlog_id = afl->queue_cur->memlog_taint[cur]->id;
-  afl->memlog_hits = afl->queue_cur->memlog_taint[cur]->hits;
-  afl->memlog_type = afl->queue_cur->memlog_taint[cur]->inst_type;
-  afl->memlog_op_type = afl->queue_cur->memlog_taint[cur]->type;
+  afl->memlog_id = afl->queue_cur->mem_taint[cur]->id;
+  afl->memlog_hits = afl->queue_cur->mem_taint[cur]->hits;
+  afl->memlog_type = afl->queue_cur->mem_taint[cur]->inst_type;
+  afl->memlog_op_type = afl->queue_cur->mem_taint[cur]->type;
 
-  r_max = 50;
-  
   parts = 0;
-  t = afl->queue_cur->memlog_taint[cur]->taint;
+  t_len = 0;
+
+  t = afl->queue_cur->mem_taint[cur]->taint;
   while(t != NULL) {
 
     parts += 1;  
+    t_len += t->len;
     t = t->next;
   
   }
-
-  for( ; afl->stage_cur < (cur + 1) * stage_max; afl->stage_cur++) {
   
-    use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
+  for( ; afl->stage_cur < (cur + 1) * stage_max; afl->stage_cur++) {
+    
+    if (t_len < SLIGHT_TAINTED) {
+
+      use_stacking = 1 + rand_below(afl, MIN((u32)(t_len), (u32)(SLIGHT_TAINTED)));
+
+    }
+    else {
+
+      use_stacking = 1 << (1 + rand_below(afl, afl->havoc_stack_pow2));
+
+    }
+   
     afl->stage_cur_val = use_stacking;
 
     for(u32 i = 0; i < use_stacking; i++) {
       
       // random generate tainted part
       r_part = rand_below(afl, parts);
-      t = afl->queue_cur->memlog_taint[cur]->taint;
+      
+      t = afl->queue_cur->mem_taint[cur]->taint;
       while(r_part--) {
 
         t = t->next;
 
       }  
-
+      
       out_buf = buf + t->pos;
       temp_len = t->len;
+
+      if (t->len < 2) {
+        
+        r_max = 19;
+
+      }
+      else if (t->len < 4) {
+
+        r_max = 34;
+
+      }
+      else {
+
+        r_max = 50;
+
+      }
 
       switch ((r = rand_below(afl, r_max))) {
         
@@ -363,8 +394,36 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-      
-        case 8 ... 9: {
+        case 8 ... 11: {
+
+          /* Randomly subtract from byte. */
+
+          out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
+          break;
+
+        }
+
+        case 12 ... 15: {
+
+          /* Randomly add to byte. */
+
+          out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
+          break;
+
+        }
+
+        case 16 ... 19: {
+
+          /* Just set a random byte to a random value. Because,
+             why not. We use XOR with 1-255 to eliminate the
+             possibility of a no-op. */
+
+          out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
+          break;
+
+        }
+
+        case 20 ... 21: {
 
           /* Set word to interesting value, little endian. */
 
@@ -377,7 +436,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        case 10 ... 11: {
+        case 22 ... 23: {
 
           /* Set word to interesting value, big endian. */
 
@@ -386,50 +445,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
           *(u16 *)(out_buf + rand_below(afl, temp_len - 1)) = SWAP16(
               interesting_16[rand_below(afl, sizeof(interesting_16) >> 1)]);
 
-          break;
-
-        }
-
-        case 12 ... 13: {
-
-          /* Set dword to interesting value, little endian. */
-
-          if (temp_len < 4) { break; }
-
-          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
-              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
-
-          break;
-
-        }
-
-        case 14 ... 15: {
-
-          /* Set dword to interesting value, big endian. */
-
-          if (temp_len < 4) { break; }
-
-          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
-              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
-
-          break;
-
-        }
-
-        case 16 ... 19: {
-
-          /* Randomly subtract from byte. */
-
-          out_buf[rand_below(afl, temp_len)] -= 1 + rand_below(afl, ARITH_MAX);
-          break;
-
-        }
-
-        case 20 ... 23: {
-
-          /* Randomly add to byte. */
-
-          out_buf[rand_below(afl, temp_len)] += 1 + rand_below(afl, ARITH_MAX);
           break;
 
         }
@@ -496,77 +511,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         case 32 ... 33: {
 
-          /* Randomly subtract from dword, little endian. */
-
-          if (temp_len < 4) { break; }
-
-          u32 pos = rand_below(afl, temp_len - 3);
-
-          *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
-
-          break;
-
-        }
-
-        case 34 ... 35: {
-
-          /* Randomly subtract from dword, big endian. */
-
-          if (temp_len < 4) { break; }
-
-          u32 pos = rand_below(afl, temp_len - 3);
-          u32 num = 1 + rand_below(afl, ARITH_MAX);
-
-          *(u32 *)(out_buf + pos) =
-              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
-
-          break;
-
-        }
-
-        case 36 ... 37: {
-
-          /* Randomly add to dword, little endian. */
-
-          if (temp_len < 4) { break; }
-
-          u32 pos = rand_below(afl, temp_len - 3);
-
-          *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
-
-          break;
-
-        }
-
-        case 38 ... 39: {
-
-          /* Randomly add to dword, big endian. */
-
-          if (temp_len < 4) { break; }
-
-          u32 pos = rand_below(afl, temp_len - 3);
-          u32 num = 1 + rand_below(afl, ARITH_MAX);
-
-          *(u32 *)(out_buf + pos) =
-              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
-
-          break;
-
-        }
-        
-        case 40 ... 43: {
-
-          /* Just set a random byte to a random value. Because,
-             why not. We use XOR with 1-255 to eliminate the
-             possibility of a no-op. */
-
-          out_buf[rand_below(afl, temp_len)] ^= 1 + rand_below(afl, 255);
-          break;
-
-        }
-
-        case 44 ... 46: {
-
           /* Overwrite bytes with a randomly selected chunk bytes. */
 
           if (temp_len < 2) { break; }
@@ -585,7 +529,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        case 47: {
+        case 34: {
 
           /* Overwrite bytes with fixed bytes. */
 
@@ -603,7 +547,97 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        default:
+        case 35 ... 36: {
+
+          /* Set dword to interesting value, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) = SWAP32(
+              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)]);
+
+          break;
+
+        }
+
+      
+
+        case 37 ... 38: {
+
+          /* Randomly subtract from dword, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+
+          *(u32 *)(out_buf + pos) -= 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 39 ... 40: {
+
+          /* Randomly subtract from dword, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+          *(u32 *)(out_buf + pos) =
+              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) - num);
+
+          break;
+
+        }
+
+        case 41 ... 42: {
+
+          /* Randomly add to dword, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+
+          *(u32 *)(out_buf + pos) += 1 + rand_below(afl, ARITH_MAX);
+
+          break;
+
+        }
+
+        case 43 ... 44: {
+
+          /* Randomly add to dword, big endian. */
+
+          if (temp_len < 4) { break; }
+
+          u32 pos = rand_below(afl, temp_len - 3);
+          u32 num = 1 + rand_below(afl, ARITH_MAX);
+
+          *(u32 *)(out_buf + pos) =
+              SWAP32(SWAP32(*(u32 *)(out_buf + pos)) + num);
+
+          break;
+
+        }
+        
+       
+        case 45 ... 47: {
+
+          /* Set dword to interesting value, little endian. */
+
+          if (temp_len < 4) { break; }
+
+          *(u32 *)(out_buf + rand_below(afl, temp_len - 3)) =
+              interesting_32[rand_below(afl, sizeof(interesting_32) >> 2)];
+
+          break;
+
+        }
+
+        default: 
+
           if (afl->extras_cnt) {
             
             /* Use the dictionary. */
@@ -645,7 +679,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
     } 
 
-      
     // execute
     if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
     //restore buf
@@ -664,7 +697,7 @@ u32 get_val(afl_state_t *afl, u32 cur, u8 idx) {
   struct hook_va_arg_operand *va_o = NULL;
   u32 val = 0;
 
-  tmp = afl->queue_cur->memlog_taint[cur];
+  tmp = afl->queue_cur->mem_taint[cur];
 
   if (tmp->inst_type >= HT_GEP_HOOK) {
         
@@ -751,7 +784,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
   u32 v0, v1;
   u8 ops;
 
-  tmp = afl->queue_cur->memlog_taint[cur];
+  tmp = afl->queue_cur->mem_taint[cur];
 
   if (tmp->inst_type == HT_GEP_HOOK) {
 
@@ -766,6 +799,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
   while(t != NULL) {
     
     afl->stage_cur++;
+    
     for(u32 i = 0; i < t->len; i++) {
       
       if (choose_move_ops(afl, buf, len, cur, t->pos + i, idx, v0, &ops)) continue;
@@ -785,11 +819,10 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
       }
     
     }
+
     t = t->next;
 
   }
-
-  show_stats(afl);
 
   return 0;
 
@@ -810,7 +843,7 @@ void taint_debug(afl_state_t *afl) {
 
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
 
-    tmp = afl->queue_cur->memlog_taint[i];
+    tmp = afl->queue_cur->mem_taint[i];
 
     fprintf(f, "id: %u hits: %u inst type: %u type: %u ", 
                         tmp->id,
@@ -829,7 +862,7 @@ void taint_debug(afl_state_t *afl) {
     }
     fprintf(f, "\n");
     
-    if (afl->queue_cur->memlog_taint[i]->inst_type == HT_GEP_HOOK) {
+    if (afl->queue_cur->mem_taint[i]->inst_type == HT_GEP_HOOK) {
     
       fprintf(f, "GEP size: %u num_of_idx: %u\n", tmp->gep->size, 
                                                        tmp->gep->num_of_idx);
@@ -881,7 +914,7 @@ void update_state(afl_state_t *afl) {
   }
   
   // update tainted inst.
-  tmp = afl->queue_cur->memlog_taint;
+  tmp = afl->queue_cur->mem_taint;
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
@@ -935,7 +968,7 @@ void write_to_taint(afl_state_t *afl) {
   
   f = create_ffile(queue_fn);
 
-  tmp = afl->queue_cur->memlog_taint;
+  tmp = afl->queue_cur->mem_taint;
   
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     // GEP inst.
@@ -966,7 +999,12 @@ void inference(afl_state_t *afl, u32 ofs) {
     // skip inconsistent inst.
     loggeds = MIN((u32)(afl->shm.mem_map->headers[k].hits), (u32)(afl->orig_mem_map->headers[k].hits));
     if (!loggeds) continue;
- 
+
+    // skip inst. which fails too many times
+    if (afl->mem_pass_stats[k].faileds >= MEMLOG_FAIL_MAX || 
+        afl->mem_pass_stats[k].total >= MEMLOG_FAIL_MAX) 
+      continue;
+
     if (loggeds > MEM_MAP_H) 
       loggeds = MEM_MAP_H;
     
@@ -1033,7 +1071,7 @@ void inference(afl_state_t *afl, u32 ofs) {
 
           for(u32 idx = 0; idx < afl->shm.mem_map->headers[k].num_of_idx; idx++) {
             if (va_o->idx[idx] != orig_va_o->idx[idx]) {
-
+                
               afl->queue_cur->c_bytes = add_tainted(afl->queue_cur->c_bytes, ofs, 1);
               add_tainted_info(afl, k, l, MEMLOG_IDX, ofs, idx);
             
@@ -1071,11 +1109,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // taint
   for(u32 i = 0; i < len; i++) {
     
-    afl->stage_cur_byte = i;
-    // reset buffer
-    if (i > 0)
-      buf[i - 1] = orig_buf [i - 1];      
-
+    afl->stage_cur_byte = i;     
     // for each mutator
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       
@@ -1083,7 +1117,13 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
       // byte-level mutate
       byte_level_mutate(afl, buf, i, j); 
       // execute
-      if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) continue;
+      if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) {
+        
+        // reset buffer
+        buf[i] = orig_buf[i];
+        continue;
+      
+      }
       /**
        * execution path check
        * 
@@ -1120,6 +1160,9 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
       // infer result
       inference(afl, i);
 
+      // reset buffer
+      buf[i] = orig_buf[i];
+
     }
 
   }
@@ -1140,6 +1183,13 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->unstable_len = 0;
   memset(afl->ht_tainted, 0, MEMLOG_HOOK_NUM * sizeof(u32));
   
+  // memlog pass stats
+  if (unlikely(!afl->mem_pass_stats)) {
+
+    afl->mem_pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * MEM_MAP_W);
+
+  }
+
   // tmp taint_map init
   if (unlikely(!afl->tmp_tainted)) {
 
@@ -1156,7 +1206,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   }
   memset(afl->orig_mem_map, 0, sizeof(struct mem_map));
 
-  if (afl->queue_cur->memlog_taint == NULL && !afl->queue_cur->tainted_failed) {
+  if (afl->queue_cur->mem_taint == NULL && !afl->queue_cur->tainted_failed) {
     // taint-inference
     if (taint(afl, buf, orig_buf, len)) {
       
@@ -1176,15 +1226,17 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     }
     // Construct tainted_info list
-    afl->queue_cur->memlog_taint = ck_alloc(sizeof(struct tainted_info *) * afl->queue_cur->tainted_cur);
+    afl->queue_cur->mem_taint = ck_alloc(sizeof(struct tainted_info *) * afl->queue_cur->tainted_cur);
     u32 cur = 0;
     for(u32 i = 0; i < MEM_MAP_W; i++) {
       
       for(u32 j = 0; j < MEM_MAP_H; j++) {  
       
         if ((*afl->tmp_tainted)[i][j] != NULL) {
-            // store per tainted inst. 
-            afl->queue_cur->memlog_taint[cur++] = (*afl->tmp_tainted)[i][j];  
+          
+          // store per tainted inst. 
+          afl->queue_cur->mem_taint[cur++] = (*afl->tmp_tainted)[i][j];  
+        
         }
 
       }  
@@ -1231,17 +1283,20 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   afl->stage_cycles[STAGE_TAINT_HAVOC] += afl->fsrv.total_execs - orig_execs;
 
   // linear search
-  /*struct tainted *t;
+  struct tainted *t;
   struct tainted_info *tmp;
+  u64 inst_orig_hit_cnt, inst_new_hit_cnt;
+
   afl->stage_name = "linear search";
   afl->stage_short = "ls";
   
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
 
+  // calculate stage max
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
-    
-    tmp = afl->queue_cur->memlog_taint[i];
+      
+    tmp = afl->queue_cur->mem_taint[i];
     if (tmp->inst_type == HT_GEP_HOOK) {
 
       for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
@@ -1271,13 +1326,16 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
   }
 
+  inst_orig_hit_cnt = orig_hit_cnt;
+
   for(u32 i = 0; i < afl->queue_cur->tainted_cur; i++) {
     
     memcpy(buf, orig_buf, len);
     
     memcpy(afl->shm.mem_map, afl->orig_mem_map, sizeof(struct mem_map));
 
-    tmp = afl->queue_cur->memlog_taint[i];
+    tmp = afl->queue_cur->mem_taint[i];
+
     afl->memlog_id = tmp->id;
     afl->memlog_hits = tmp->hits;
     afl->memlog_type = tmp->inst_type;
@@ -1302,11 +1360,33 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     }
     
+    inst_new_hit_cnt = afl->queued_items + afl->saved_crashes;
+    
+    // fail
+    if (inst_orig_hit_cnt == inst_new_hit_cnt) {
+      
+      if (afl->mem_pass_stats[tmp->id].faileds < 0xff) {
+
+        afl->mem_pass_stats[tmp->id].faileds++;
+
+      }
+
+    }
+    
+    // update total
+    if (afl->mem_pass_stats[tmp->id].total < 0xff) {
+
+      afl->mem_pass_stats[tmp->id].total++;
+
+    }
+
+    inst_orig_hit_cnt = inst_new_hit_cnt;
+
   }
   
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_TAINT_LS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;*/
+  afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;
 
   return 0;
 

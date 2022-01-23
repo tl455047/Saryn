@@ -552,6 +552,7 @@ void afl_state_deinit(afl_state_t *afl) {
   if (afl->in_place_resume) { ck_free(afl->in_dir); }
   if (afl->sync_id) { ck_free(afl->out_dir); }
   if (afl->pass_stats) { ck_free(afl->pass_stats); }
+  if (afl->mem_pass_stats) { ck_free(afl->mem_pass_stats); }
   if (afl->orig_cmp_map) { ck_free(afl->orig_cmp_map); }
   if (afl->orig_mem_map) { ck_free(afl->orig_mem_map); }
   if (afl->tmp_tainted) {ck_free(afl->tmp_tainted); }

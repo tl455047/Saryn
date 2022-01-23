@@ -518,5 +518,8 @@
 
 #define MEMLOG_HOOK_NUM 6
 
+/* Maximum allowed fails per MEM value. Default: 128 */
+#define MEMLOG_FAIL_MAX 96 * 2
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 
