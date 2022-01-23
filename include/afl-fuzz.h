@@ -164,6 +164,7 @@ struct tainted_info {
 
 };
 
+/* for GEP inst. */
 struct tainted_gep_info {
   
   u32 size;
@@ -620,6 +621,7 @@ typedef struct afl_state {
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,
       ht_tainted[MEMLOG_HOOK_NUM];
+
   tainted_map *tmp_tainted;
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */

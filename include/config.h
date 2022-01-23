@@ -510,9 +510,9 @@
 
 #define AFL_TXT_STRING_MAX_MUTATIONS 6
 
-/* Memlog mutator num */
+/* Taint Inference number of mutators */
 
-#define TAINT_INFER_MUTATOR_NUM 1
+#define TAINT_INFER_MUTATOR_NUM 2
 
 /* Memlog hook num */
 
