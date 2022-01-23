@@ -1362,24 +1362,29 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     inst_new_hit_cnt = afl->queued_items + afl->saved_crashes;
     
-    // fail
-    if (inst_orig_hit_cnt == inst_new_hit_cnt) {
-      
-      if (afl->mem_pass_stats[tmp->id].faileds < 0xff) {
+    if (i == 0 || afl->queue_cur->mem_taint[i]->id 
+      != afl->queue_cur->mem_taint[i-1]->id) {
+        
+      // fail
+      if (inst_orig_hit_cnt == inst_new_hit_cnt) {
+        
+        if (afl->mem_pass_stats[tmp->id].faileds < 0xff) {
 
-        afl->mem_pass_stats[tmp->id].faileds++;
+          afl->mem_pass_stats[tmp->id].faileds++;
+
+        }
+
+      }
+      
+      // update total
+      if (afl->mem_pass_stats[tmp->id].total < 0xff) {
+
+        afl->mem_pass_stats[tmp->id].total++;
 
       }
 
     }
     
-    // update total
-    if (afl->mem_pass_stats[tmp->id].total < 0xff) {
-
-      afl->mem_pass_stats[tmp->id].total++;
-
-    }
-
     inst_orig_hit_cnt = inst_new_hit_cnt;
 
   }
