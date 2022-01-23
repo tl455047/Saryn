@@ -617,7 +617,8 @@ typedef struct afl_state {
       memlog_hits,
       memlog_type,
       memlog_op_type;
-      
+  u64 memlog_val;
+  
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,
       ht_tainted[MEMLOG_HOOK_NUM];

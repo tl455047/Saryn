@@ -742,36 +742,36 @@ u32 get_val(afl_state_t *afl, u32 cur, u8 idx) {
  * f'(x) = [v(x+1) - v(x)]
  * 
  */
-u8 choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u32 ofs, u8 idx, u32 v0, u8* ops) {
+u8 choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u32 ofs, u32 v0, u8* ops) {
 
   u32 v1;
   // buf[i + 1] exec  
-  byte_level_mutate(afl, buf, ofs, 1);
+  *ops = 1;
+  byte_level_mutate(afl, buf, ofs, *ops);
   if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
   v1 = get_val(afl, cur, idx);
 
   if (v1 > v0) {
     
-    *ops = 1;
     return 0;
 
   }
   // restore buffer
-  byte_level_mutate(afl, buf, ofs, 3);
+  byte_level_mutate(afl, buf, ofs, *ops ^ 2);
 
   // buf[i - 1] exec  
-  byte_level_mutate(afl, buf, ofs, 3);
+  *ops = 3;
+  byte_level_mutate(afl, buf, ofs, *ops);
   if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
   v1 = get_val(afl, cur, idx);
 
   if (v1 > v0) {
     
-    *ops = 3;
     return 0;
 
   }
   // restore buffer
-  byte_level_mutate(afl, buf, ofs, 1);
+  byte_level_mutate(afl, buf, ofs, *ops ^ 2);
 
   return 1;
 
@@ -794,7 +794,19 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
   else 
     t = tmp->taint;
   
-  v0 = get_val(afl, cur, idx);
+  v1 = v0 = get_val(afl, cur, idx);
+
+  u8 *queue_fn = "";
+  FILE *f;
+  
+  // critical bytes 
+  queue_fn = alloc_printf(
+    "%s/taint/id:%06u,%06u,ls,debug", afl->out_dir, afl->queue_cur->id,
+    afl->tainted_len);
+
+  f = create_ffile(queue_fn);
+  fprintf(f, "inst_type: %u cur: %u idx: %u init v0: %u init v1: %u\n", 
+    tmp->inst_type, cur, idx, v0, v1);
 
   while(t != NULL) {
     
@@ -802,8 +814,11 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
     
     for(u32 i = 0; i < t->len; i++) {
       
-      if (choose_move_ops(afl, buf, len, cur, t->pos + i, idx, v0, &ops)) continue;
-
+      afl->memlog_val = v0;
+      
+      if (choose_move_ops(afl, buf, len, cur, idx, t->pos + i, v0, &ops)) continue;
+      
+      fprintf(f, "ofs: %u v0: %u ops: %u ", t->pos + i, v0, ops);
       while (1) {
         
         byte_level_mutate(afl, buf, t->pos + i, ops);
@@ -811,8 +826,17 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
         if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
         v1 = get_val(afl, cur, idx);
         
-        if (v1 <= v0)
+        fprintf(f, "v0: %u v1: %u\n", v0, v1);
+        if (v1 <= v0) {
+          
+          // restore buffer
+          byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
           break;
+        
+        }
+        else if (tmp->inst_type == HT_GEP_HOOK) {
+
+        }
 
         v0 = v1;
 
@@ -823,6 +847,8 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
     t = t->next;
 
   }
+
+  fclose(f);
 
   return 0;
 
