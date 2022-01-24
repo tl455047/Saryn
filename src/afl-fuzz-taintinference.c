@@ -1361,7 +1361,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     afl->memlog_id = tmp->id;
     afl->memlog_type = tmp->inst_type;
     afl->memlog_op_type = tmp->type;
- 
+
     if (tmp->inst_type == HT_GEP_HOOK) {
 
       for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
