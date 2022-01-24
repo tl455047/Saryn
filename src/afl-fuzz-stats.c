@@ -1219,30 +1219,38 @@ void show_stats(afl_state_t *afl) {
     SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
     sprintf(tmp, "%d", afl->memlog_id);
     SAYF(bV bSTOP "          id : "  cRST "%-36s " bSTG bV"\n", tmp);        
-    sprintf(tmp, "%d", afl->memlog_hits);                        
-    SAYF(bV bSTOP "        hits : "  cRST "%-36s " bSTG bV"\n", tmp);
-
+  
     switch(afl->memlog_type) {
       
       case HT_HOOK1: {
+
         sprintf(tmp, "%s", "hook1(ptr, size)");
         break;
+      
       }
       case HT_HOOK2: {
+        
         sprintf(tmp, "%s", "hook2(dst, src, size)");
         break;
+      
       }
       case HT_HOOK3: {
+        
         sprintf(tmp, "%s", "hook3(size)");
         break;
+      
       }
       case HT_HOOK4: {
+        
         sprintf(tmp, "%s", "hook4(ptr)");
         break;
+      
       }
       case HT_GEP_HOOK: {
-        sprintf(tmp, "%s", "GetElementPtr(ptr, idx1, idx2, ...)");
+        
+        sprintf(tmp, "%s", "GEP");
         break;
+      
       }
       default:
         break;
@@ -1254,32 +1262,45 @@ void show_stats(afl_state_t *afl) {
     
     switch(afl->memlog_op_type) {
       case MEMLOG_DST: {
+
         sprintf(tmp, "%s", "DST");
         break;
+      
       }
       case MEMLOG_SRC: {
+      
         sprintf(tmp, "%s", "SRC");
         break;
+      
       }
       case MEMLOG_SIZE: {
+        
         sprintf(tmp, "%s", "SIZE");
         break;
+      
       }
       case MEMLOG_IDX: {
+        
         sprintf(tmp, "%s", "IDX");
         break;
+      
       }
       case MEMLOG_VA_SRC: {
+        
         sprintf(tmp, "%s", "GEP SRC");
         break;
+      
       }
       default:
         break;
     
     }
     
-    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV, tmp);                  
-
+    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV "\n", tmp);                  
+    
+    sprintf(tmp, "%llu", afl->memlog_val);
+    SAYF(bV bSTOP "         val : "  cRST "%-36s " bSTG bV, tmp);   
+          
   }
 
   /* Last line */
