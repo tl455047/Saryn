@@ -796,29 +796,15 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
   
   v1 = v0 = get_val(afl, cur, idx);
 
-  u8 *queue_fn = "";
-  FILE *f;
-  
-  // critical bytes 
-  queue_fn = alloc_printf(
-    "%s/taint/id:%06u,%06u,ls,debug", afl->out_dir, afl->queue_cur->id,
-    afl->tainted_len);
-
-  f = create_ffile(queue_fn);
-  fprintf(f, "inst_type: %u cur: %u idx: %u init v0: %u init v1: %u\n", 
-    tmp->inst_type, cur, idx, v0, v1);
-
   while(t != NULL) {
-    
-    afl->stage_cur++;
     
     for(u32 i = 0; i < t->len; i++) {
       
+      afl->stage_cur++;
       afl->memlog_val = v0;
       
       if (choose_move_ops(afl, buf, len, cur, idx, t->pos + i, v0, &ops)) continue;
       
-      fprintf(f, "ofs: %u v0: %u ops: %u ", t->pos + i, v0, ops);
       while (1) {
         
         byte_level_mutate(afl, buf, t->pos + i, ops);
@@ -826,16 +812,25 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
         if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
         v1 = get_val(afl, cur, idx);
         
-        fprintf(f, "v0: %u v1: %u\n", v0, v1);
+        if (tmp->inst_type == HT_GEP_HOOK) {
+          // GEP stop condition
+          if (v1 >= tmp->gep->size - 1) {
+            // interesting
+            // try 
+            if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
+
+          }
+
+        }
+        
         if (v1 <= v0) {
           
           // restore buffer
           byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
+          // try fuzz once
+          if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
           break;
         
-        }
-        else if (tmp->inst_type == HT_GEP_HOOK) {
-
         }
 
         v0 = v1;
@@ -844,11 +839,11 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx) {
     
     }
 
+    show_stats(afl);
+
     t = t->next;
 
   }
-
-  fclose(f);
 
   return 0;
 
@@ -1282,7 +1277,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   update_state(afl);
 
-  taint_debug(afl);
+  //taint_debug(afl);
 
   // tainted part only mutation
   u64 orig_hit_cnt, new_hit_cnt, orig_execs;
