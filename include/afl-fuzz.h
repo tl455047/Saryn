@@ -614,7 +614,6 @@ typedef struct afl_state {
       exit_on_time;                     /* Delay to exit if no new paths    */
 
   u32 memlog_id,                        /*           Memlog info            */
-      memlog_hits,
       memlog_type,
       memlog_op_type;
   u64 memlog_val;

@@ -306,19 +306,20 @@ static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, u32 cur) {
    
   struct tainted *t; 
+  struct tainted_info *tmp;
   s32 r_part;
   u32 use_stacking, r_max, r, temp_len, parts, t_len; 
   u8* out_buf;
 
-  afl->memlog_id = afl->queue_cur->mem_taint[cur]->id;
-  afl->memlog_hits = afl->queue_cur->mem_taint[cur]->hits;
-  afl->memlog_type = afl->queue_cur->mem_taint[cur]->inst_type;
-  afl->memlog_op_type = afl->queue_cur->mem_taint[cur]->type;
+  tmp = afl->queue_cur->mem_taint[cur];
+  afl->memlog_id = tmp->id;
+  afl->memlog_type = tmp->inst_type;
+  afl->memlog_op_type = tmp->type;
 
   parts = 0;
   t_len = 0;
 
-  t = afl->queue_cur->mem_taint[cur]->taint;
+  t = tmp->taint;
   while(t != NULL) {
 
     parts += 1;  
@@ -347,7 +348,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
       // random generate tainted part
       r_part = rand_below(afl, parts);
       
-      t = afl->queue_cur->mem_taint[cur]->taint;
+      t = tmp->taint;
       while(r_part--) {
 
         t = t->next;
@@ -1358,7 +1359,6 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     tmp = afl->queue_cur->mem_taint[i];
 
     afl->memlog_id = tmp->id;
-    afl->memlog_hits = tmp->hits;
     afl->memlog_type = tmp->inst_type;
     afl->memlog_op_type = tmp->type;
  
