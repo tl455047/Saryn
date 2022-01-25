@@ -584,7 +584,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   // cmplog mode
   if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
     memcpy(out_buf, in_buf, len);
-    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMPLOG)) {
+    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP)) {
 
       goto abandon_entry;
 
@@ -595,7 +595,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   // smaller than 2^16.
   if (unlikely(afl->shm.memlog_mode) && len <= MEMLOG_MAXIMUM_INPUT_SIZE) {
     memcpy(out_buf, in_buf, len);
-    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEMLOG)) {
+    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEM)) {
 
       goto abandon_entry;
 

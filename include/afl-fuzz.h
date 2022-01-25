@@ -154,12 +154,12 @@ struct tainted {
 
 enum taint_mode {
 
-  TAINT_CMPLOG = 0,
-  TAINT_MEMLOG = 1
+  TAINT_CMP = 0,
+  TAINT_MEM = 1
 
 };
 
-#define TAINT_MODE (TAINT_MEMLOG + 1)
+#define TAINT_MODE (TAINT_MEM + 1)
 
 /* for memlog */
 
@@ -628,10 +628,10 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       exit_on_time;                     /* Delay to exit if no new paths    */
 
-  u32 memlog_id,                        /*           Memlog info            */
-      memlog_type,
-      memlog_op_type;
-  u64 memlog_val;
+  u32 log_id,                        /*           Memlog info            */
+      log_type,
+      log_op_type;
+  u64 log_val;
   
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,

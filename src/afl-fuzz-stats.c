@@ -1207,7 +1207,7 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");      
    
-    if (afl->shm.cmplog_mode == 1 && afl->taint_mode == TAINT_CMPLOG) {
+    if (afl->shm.cmplog_mode == 1 && afl->taint_mode == TAINT_CMP) {
 
       sprintf(tmp, "cmplog");
 
@@ -1230,10 +1230,10 @@ void show_stats(afl_state_t *afl) {
     }
 
     SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
-    sprintf(tmp, "%d", afl->memlog_id);
+    sprintf(tmp, "%d", afl->log_id);
     SAYF(bV bSTOP "          id : "  cRST "%-36s " bSTG bV"\n", tmp);        
   
-    switch(afl->memlog_type) {
+    switch(afl->log_type) {
       
       case HT_HOOK1: {
 
@@ -1269,36 +1269,36 @@ void show_stats(afl_state_t *afl) {
         break;
 
     }
-    //sprintf(tmp, "%d", afl->memlog_type);                        
+    //sprintf(tmp, "%d", afl->log_type);                        
     SAYF(bV bSTOP "        type : "  cRST "%-36s " bSTG bV"\n", tmp);          
-    //sprintf(tmp, "%d", afl->memlog_op_type);                        
+    //sprintf(tmp, "%d", afl->log_op_type);                        
     
-    switch(afl->memlog_op_type) {
-      case MEMLOG_DST: {
+    switch(afl->log_op_type) {
+      case MEM_DST: {
 
         sprintf(tmp, "DST");
         break;
       
       }
-      case MEMLOG_SRC: {
+      case MEM_SRC: {
       
         sprintf(tmp, "SRC");
         break;
       
       }
-      case MEMLOG_SIZE: {
+      case MEM_SIZE: {
         
         sprintf(tmp, "SIZE");
         break;
       
       }
-      case MEMLOG_IDX: {
+      case MEM_IDX: {
         
         sprintf(tmp, "IDX");
         break;
       
       }
-      case MEMLOG_VA_SRC: {
+      case MEM_VA_SRC: {
         
         sprintf(tmp, "GEP SRC");
         break;
@@ -1311,7 +1311,7 @@ void show_stats(afl_state_t *afl) {
     
     SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV "\n", tmp);                  
     
-    sprintf(tmp, "%llu", afl->memlog_val);
+    sprintf(tmp, "%llu", afl->log_val);
     SAYF(bV bSTOP "         val : "  cRST "%-36s " bSTG bV, tmp);   
           
   }

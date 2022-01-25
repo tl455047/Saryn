@@ -41,13 +41,13 @@ struct mem_header {
   
 } __attribute__((packed));
 
-enum memlog_type {
+enum log_type {
 
-  MEMLOG_SRC = 1,
-  MEMLOG_DST = 2,
-  MEMLOG_SIZE = 3,
-  MEMLOG_IDX = 4,
-  MEMLOG_VA_SRC = 5
+  MEM_SRC = 1,
+  MEM_DST = 2,
+  MEM_SIZE = 3,
+  MEM_IDX = 4,
+  MEM_VA_SRC = 5
 
 };
 
