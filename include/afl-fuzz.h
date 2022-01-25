@@ -45,6 +45,7 @@
 #include "sharedmem.h"
 #include "forkserver.h"
 #include "common.h"
+#include "cmplog.h"
 #include "memlog.h"
 #include <stdio.h>
 #include <unistd.h>
@@ -149,6 +150,17 @@ struct tainted {
 
 };
 
+/* Taint Inference Mode */
+
+enum taint_mode {
+
+  TAINT_CMPLOG = 0,
+  TAINT_MEMLOG = 1
+
+};
+
+#define TAINT_MODE (TAINT_MEMLOG + 1)
+
 /* for memlog */
 
 struct tainted_info {
@@ -173,7 +185,8 @@ struct tainted_gep_info {
 
 };
 
-typedef struct tainted_info* tainted_map[MEM_MAP_W][MEM_MAP_H];
+typedef struct tainted_info* cmp_tainted_map[CMP_MAP_W][CMP_MAP_H];
+typedef struct tainted_info* mem_tainted_map[MEM_MAP_W][MEM_MAP_H];
 
 struct queue_entry {
 
@@ -215,17 +228,19 @@ struct queue_entry {
   u8 *testcase_buf;                     /* The testcase buffer, if loaded.  */
 
   u8 *             cmplog_colorinput;   /* the result buf of colorization   */
-  struct tainted  *taint;               /* Taint information from CmpLog    */
+  struct tainted  *color_taint;         /* Taint information from CmpLog    */
   struct tainted **extra_taint;         /* extra Taint information          */
   u32              cksum_cur;           /* unique paths from extra taint    */
-                                        
-                                        /* Taint Inference                  */               
-  struct tainted       *c_bytes;        /* total tainted ofs                */
-  struct tainted_info **mem_taint;      /* Taint information from Memlog    */
-  struct tainted_info **cmp_taint;      /* Taint information from Cmplog    */
-  u32                   tainted_cur;    /* total tainted inst.              */
-  u8                    tainted_failed; /* failed to taint                  */
-  
+                                      
+                                        /* Taint Inference                  */ 
+                                        /* critical bytes                   */               
+  struct tainted       *c_bytes[TAINT_MODE];     
+                                        /* Taint information                */
+  struct tainted_info **taint[TAINT_MODE];                                      
+                                        /* total tainted inst.              */
+  u32                   taint_cur[TAINT_MODE];
+                                        /* failed to taint                  */
+  u8                    taint_failed[TAINT_MODE];
   struct queue_entry *mother;           /* queue entry this based on        */
 
 };
@@ -621,8 +636,10 @@ typedef struct afl_state {
   u32 unstable_len,                     /*       taint inference info       */
       tainted_len,
       ht_tainted[MEMLOG_HOOK_NUM];
-
-  tainted_map *tmp_tainted;
+  u8  taint_mode;
+  
+  mem_tainted_map *mem_tmp_tainted;
+  cmp_tainted_map *cmp_tmp_tainted;
 
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
@@ -706,8 +723,8 @@ typedef struct afl_state {
   u32 colorize_success;
   u8  cmplog_enable_arith, cmplog_enable_transform;
 
-  struct afl_pass_stat *pass_stats;
-  struct afl_pass_stat *mem_pass_stats;
+  struct afl_pass_stat *its_pass_stats;
+  struct afl_pass_stat *pass_stats[TAINT_MODE];
   struct cmp_map *      orig_cmp_map;
   struct mem_map *      orig_mem_map;
 
@@ -1200,8 +1217,8 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
-/* temporary name */
-u8 taint_inference_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
+/* Taint Inference */
+u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

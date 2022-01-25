@@ -1900,19 +1900,19 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   if (loggeds > 3 && ((s_v0_fixed && s_v1_inc) || (s_v1_fixed && s_v0_inc) ||
                       (s_v0_fixed && s_v1_dec) || (s_v1_fixed && s_v0_dec))) {
 
-    afl->pass_stats[key].total = afl->pass_stats[key].faileds = 0xff;
+    afl->its_pass_stats[key].total = afl->its_pass_stats[key].faileds = 0xff;
 
   }
 
   if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
     
-    if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+    if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
 
-      afl->pass_stats[key].faileds++;
+      afl->its_pass_stats[key].faileds++;
 
     }
 
-    if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
+    if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
   
   }
 
@@ -2552,11 +2552,11 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     }
 
-    //  if (unlikely(!afl->pass_stats[key].total)) {
+    //  if (unlikely(!afl->its_pass_stats[key].total)) {
 
     if ((!found_one && (lvl & LVL1)) || afl->queue_cur->is_ascii) {
 
-      // if (unlikely(!afl->pass_stats[key].total)) {
+      // if (unlikely(!afl->its_pass_stats[key].total)) {
 
       u32 shape_len = SHAPE_BYTES(h->shape);
       u32 v0_len = shape_len, v1_len = shape_len;
@@ -2597,13 +2597,13 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
     
-    if (!found_one && afl->pass_stats[key].faileds < 0xff) {
+    if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
 
-      afl->pass_stats[key].faileds++;
+      afl->its_pass_stats[key].faileds++;
 
     }
 
-    if (afl->pass_stats[key].total < 0xff) { afl->pass_stats[key].total++; }
+    if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
     
   }
 
@@ -2655,9 +2655,9 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   u8 r = 1;
-  if (unlikely(!afl->pass_stats)) {
+  if (unlikely(!afl->its_pass_stats)) {
 
-    afl->pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
+    afl->its_pass_stats = ck_alloc(sizeof(struct afl_pass_stat) * CMP_MAP_W);
 
   }
 
@@ -2680,7 +2680,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  if (!afl->queue_cur->taint || !afl->queue_cur->cmplog_colorinput) {
+  if (!afl->queue_cur->color_taint || !afl->queue_cur->cmplog_colorinput) {
 
     if (unlikely(colorization(afl, buf, len, &taint))) { return 1; }
 
@@ -2707,7 +2707,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   } else {
 
     buf = afl->queue_cur->cmplog_colorinput;
-    taint = afl->queue_cur->taint;
+    taint = afl->queue_cur->color_taint;
 
   }
 
@@ -2804,8 +2804,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     if (!afl->shm.cmp_map->headers[k].hits) { continue; }
 
-    if (afl->pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
-        afl->pass_stats[k].total >= CMPLOG_FAIL_MAX) {
+    if (afl->its_pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
+        afl->its_pass_stats[k].total >= CMPLOG_FAIL_MAX) {
 
 #ifdef _DEBUG
       fprintf(stderr, "DISABLED %u\n", k);
@@ -3049,8 +3049,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     u32 k, loggeds;
     for (k = 0; k < CMP_MAP_W; ++k) {
 
-      if (afl->pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
-          afl->pass_stats[k].total >= CMPLOG_FAIL_MAX) {
+      if (afl->its_pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
+          afl->its_pass_stats[k].total >= CMPLOG_FAIL_MAX) {
 
   #ifdef _DEBUG
         fprintf(stderr, "DISABLED %u\n", k);
@@ -3151,7 +3151,7 @@ exit_its:
 
     }
 
-    afl->queue_cur->taint = NULL;
+    afl->queue_cur->color_taint = NULL;
 
     if (afl->queue_cur->extra_taint != NULL) {
       
@@ -3175,7 +3175,7 @@ exit_its:
 
     afl->queue_cur->colorized = LVL2;
 
-    if (!afl->queue_cur->taint) { afl->queue_cur->taint = taint; }
+    if (!afl->queue_cur->color_taint) { afl->queue_cur->color_taint = taint; }
 
     if (!afl->queue_cur->cmplog_colorinput) {
 

@@ -1205,7 +1205,20 @@ void show_stats(afl_state_t *afl) {
 
     SAYF("\n"SET_G1 bSTG bV bSTOP "      th/tls : " cRST "%-36s " bSTG bV"\n", tmp);
 
-    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");                                         
+    SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");      
+   
+    if (afl->shm.cmplog_mode == 1 && afl->taint_mode == TAINT_CMPLOG) {
+
+      sprintf(tmp, "cmplog");
+
+    }
+    else {
+
+      sprintf(tmp, "memlog");
+
+    }
+    SAYF(bV bSTOP "  taint mode : "  cRST "%-36s " bSTG bV"\n", tmp); 
+
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->unstable_len);
     SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
 
@@ -1224,31 +1237,31 @@ void show_stats(afl_state_t *afl) {
       
       case HT_HOOK1: {
 
-        sprintf(tmp, "%s", "hook1(ptr, size)");
+        sprintf(tmp, "hook1(ptr, size)");
         break;
       
       }
       case HT_HOOK2: {
         
-        sprintf(tmp, "%s", "hook2(dst, src, size)");
+        sprintf(tmp, "hook2(dst, src, size)");
         break;
       
       }
       case HT_HOOK3: {
         
-        sprintf(tmp, "%s", "hook3(size)");
+        sprintf(tmp, "hook3(size)");
         break;
       
       }
       case HT_HOOK4: {
         
-        sprintf(tmp, "%s", "hook4(ptr)");
+        sprintf(tmp, "hook4(ptr)");
         break;
       
       }
       case HT_GEP_HOOK: {
         
-        sprintf(tmp, "%s", "GEP");
+        sprintf(tmp, "GEP");
         break;
       
       }
@@ -1263,31 +1276,31 @@ void show_stats(afl_state_t *afl) {
     switch(afl->memlog_op_type) {
       case MEMLOG_DST: {
 
-        sprintf(tmp, "%s", "DST");
+        sprintf(tmp, "DST");
         break;
       
       }
       case MEMLOG_SRC: {
       
-        sprintf(tmp, "%s", "SRC");
+        sprintf(tmp, "SRC");
         break;
       
       }
       case MEMLOG_SIZE: {
         
-        sprintf(tmp, "%s", "SIZE");
+        sprintf(tmp, "SIZE");
         break;
       
       }
       case MEMLOG_IDX: {
         
-        sprintf(tmp, "%s", "IDX");
+        sprintf(tmp, "IDX");
         break;
       
       }
       case MEMLOG_VA_SRC: {
         
-        sprintf(tmp, "%s", "GEP SRC");
+        sprintf(tmp, "GEP SRC");
         break;
       
       }
