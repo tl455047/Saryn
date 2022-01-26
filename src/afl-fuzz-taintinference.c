@@ -86,6 +86,7 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
       new_info->hits = hits;
       new_info->inst_type = c_map->headers[id].type;
       new_info->type = type;
+      new_info->cksum = c_map->cksum[id][hits];
 
       new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
@@ -110,7 +111,8 @@ static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 of
       new_info->hits = hits;
       new_info->inst_type = m_map->headers[id].type;
       new_info->type = type;
-    
+      new_info->cksum = m_map->cksum[id][hits];
+
       if (m_map->headers[id].type == HT_GEP_HOOK) {
         
         new_info->gep = ck_alloc(sizeof(struct tainted_gep_info));
@@ -759,6 +761,35 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
 }
 
+u8 exec_path_check(afl_state_t *afl, u32 cur, u8 mode) {
+
+  struct tainted_info *tmp;
+
+  tmp = afl->queue_cur->taint[mode][cur];
+
+  if (mode == TAINT_CMP) {
+
+    if (afl->shm.cmp_map->headers[tmp->id].hits < tmp->hits + 1 || 
+        afl->shm.cmp_map->cksum[tmp->id][tmp->hits] != tmp->cksum) {
+
+      return 1;
+    
+    }
+  }
+  else {
+
+    if (afl->shm.mem_map->headers[tmp->id].hits < tmp->hits + 1 ||
+        afl->shm.mem_map->cksum[tmp->id][tmp->hits] != tmp->cksum) {
+      
+      return 1;
+
+    }
+  }
+
+  return 0;
+
+}
+
 u64 cmp_get_val(afl_state_t *afl, u32 cur, u8 type) {
 
   struct tainted_info *tmp;
@@ -868,20 +899,25 @@ u64 mem_get_val(afl_state_t *afl, u32 cur, u8 idx) {
 u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u32 ofs, u64 v0, u64 gap, u8* ops) {
 
   u32 v1;
+
   // buf[i + 1] exec  
   *ops = 1;
   byte_level_mutate(afl, buf, ofs, *ops);
 
   memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
-  
-  v1 = cmp_get_val(afl, cur, 
-    afl->queue_cur->taint[TAINT_CMP][cur]->type);
-    
-  if (_ABS(v0, v1) < gap) {
-  
-    return 0;
+  // execution path check
+  if (!exec_path_check(afl, cur, TAINT_CMP)) {
 
+    v1 = cmp_get_val(afl, cur, 
+      afl->queue_cur->taint[TAINT_CMP][cur]->type);
+      
+    if (_ABS(v0, v1) < gap) {
+    
+      return 0;
+
+    }
+  
   }
 
   // restore buffer
@@ -893,14 +929,18 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u32 ofs, u64
 
   memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
+  // execution path check
+  if (!exec_path_check(afl, cur, TAINT_CMP)) {
 
-  v1 = cmp_get_val(afl, cur, 
-    afl->queue_cur->taint[TAINT_CMP][cur]->type);
+    v1 = cmp_get_val(afl, cur, 
+      afl->queue_cur->taint[TAINT_CMP][cur]->type);
 
-  if (_ABS(v0, v1) < gap) {
+    if (_ABS(v0, v1) < gap) {
+    
+      return 0;
+
+    }
   
-    return 0;
-
   }
 
   // restore buffer
@@ -921,20 +961,24 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u32 ofs, u64
 u8 mem_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u32 ofs, u32 v0, u8* ops) {
 
   u32 v1;
+
   // buf[i + 1] exec  
   *ops = 1;
   byte_level_mutate(afl, buf, ofs, *ops);
   
   if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
-  
-  v1 = mem_get_val(afl, cur, idx);
+  // execution path check
+  if (!exec_path_check(afl, cur, TAINT_MEM)) {
+      
+    v1 = mem_get_val(afl, cur, idx);
+      
+    if (v1 > v0) {
     
-  if (v1 > v0) {
-  
-    return 0;
+      return 0;
+
+    }
 
   }
-
   // restore buffer
   byte_level_mutate(afl, buf, ofs, *ops ^ 2);
 
@@ -943,15 +987,18 @@ u8 mem_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u32 
   byte_level_mutate(afl, buf, ofs, *ops);
 
   if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
+  // execution path check
+  if (!exec_path_check(afl, cur, TAINT_MEM)) {
 
-  v1 = mem_get_val(afl, cur, idx);
+    v1 = mem_get_val(afl, cur, idx);
 
-  if (v1 > v0) {
-  
-    return 0;
+    if (v1 > v0) {
+    
+      return 0;
+
+    }
 
   }
-
   // restore buffer
   byte_level_mutate(afl, buf, ofs, *ops ^ 2);
 
@@ -964,7 +1011,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
   struct tainted *t; 
   struct tainted_info *tmp;
   u64 v0, v1, gap = 0;
-  u8 ops;
+  u8 ops = 1;
 
   tmp = afl->queue_cur->taint[mode][cur];
 
@@ -1040,7 +1087,14 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
           // exec
           memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
           if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
+          // execution path check
+          if (exec_path_check(afl, cur, TAINT_CMP)) {
 
+            // restore buffer
+            byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
+            break;
+          
+          }
           // get val
           v1 = cmp_get_val(afl, cur, tmp->type);
 
@@ -1048,15 +1102,18 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
             v0, v1, _ABS(v0, v1), gap, ops);
           
           // stop condition
-          if (_ABS(v0, v1) >= gap || _ABS(v0, v1) == 0) {
-            // restore buffer
-            byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
-            // try fuzz once
-            if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
+          if (_ABS(v0, v1) == 0) {
+            
             break;
 
           }
+          else if (_ABS(v0, v1) >= gap) {
 
+            // restore buffer
+            byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
+            break;
+
+          }
           // update gap
           gap = _ABS(v0, v1);
 
@@ -1065,11 +1122,17 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
           
           // exec
           if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) return 1;
-
-           // get val
+          // execution path check
+          if (exec_path_check(afl, cur, TAINT_MEM)) {
+            
+            // restore buffer
+            byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
+            break;
+          
+          }
+          // get val
           v1 = mem_get_val(afl, cur, idx);
 
-         
           if (tmp->inst_type == HT_GEP_HOOK) {
             // GEP 
             if (v1 >= tmp->gep->size - 1) {
@@ -1086,8 +1149,6 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
             
             // restore buffer
             byte_level_mutate(afl, buf, t->pos + i, ops ^ 2);
-            // try fuzz once
-            if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
             break;
           
           }
@@ -1098,7 +1159,10 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
         }
 
       }
-    
+
+      // try fuzz once
+      if (unlikely(common_fuzz_stuff(afl, buf, len))) return 1;
+
     }
 
     show_stats(afl);
@@ -1865,17 +1929,47 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   // linear search
   
   u64 inst_orig_hit_cnt, inst_new_hit_cnt;
-  
+  u32 r_max, r;
+
   afl->stage_name = "linear search";
   afl->stage_short = "ls";
   
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
 
-  // calculate stage max
-  for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
+  if (afl->queue_cur->taint_cur[mode] < 4) {
+
+    r_max = afl->queue_cur->taint_cur[mode];
+
+  }
+  else {
+
+    r_max = MIN(afl->queue_cur->taint_cur[mode] / 2, 
+      1 << (1 + rand_below(afl, HAVOC_STACK_POW2)));
+
+  }
+
+  inst_orig_hit_cnt = orig_hit_cnt;
+  
+  for(u32 i = 0; i < r_max; i++) {
+    
+    r = rand_below(afl, afl->queue_cur->taint_cur[mode]);
+
+    memcpy(buf, orig_buf, len);
+    
+    if (mode == TAINT_CMP) {
       
-    tmp = afl->queue_cur->taint[mode][i];
+      memcpy(afl->shm.cmp_map, afl->orig_cmp_map, sizeof(struct cmp_map));
+
+    }
+    else {
+      
+      memcpy(afl->shm.mem_map, afl->orig_mem_map, sizeof(struct mem_map));
+
+    }
+
+    tmp = afl->queue_cur->taint[mode][r];
+
     if (tmp->inst_type == HT_GEP_HOOK) {
 
       for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
@@ -1902,27 +1996,6 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
       }
 
     }
-    
-  }
-
-  inst_orig_hit_cnt = orig_hit_cnt;
-
-  for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
-    
-    memcpy(buf, orig_buf, len);
-    
-    if (mode == TAINT_CMP) {
-      
-      memcpy(afl->shm.cmp_map, afl->orig_cmp_map, sizeof(struct cmp_map));
-
-    }
-    else {
-      
-      memcpy(afl->shm.mem_map, afl->orig_mem_map, sizeof(struct mem_map));
-
-    }
-
-    tmp = afl->queue_cur->taint[mode][i];
 
     afl->log_id = tmp->id;
     afl->log_type = tmp->inst_type;
@@ -1949,8 +2022,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     
     inst_new_hit_cnt = afl->queued_items + afl->saved_crashes;
     
-    if (i == 0 || afl->queue_cur->taint[mode][i]->id 
-      != afl->queue_cur->taint[mode][i-1]->id) {
+    if (r == 0 || afl->queue_cur->taint[mode][r]->id 
+      != afl->queue_cur->taint[mode][r-1]->id) {
         
       // fail
       if (inst_orig_hit_cnt == inst_new_hit_cnt) {

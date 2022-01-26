@@ -169,6 +169,7 @@ struct tainted_info {
   u32 hits;
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
+  u64 cksum;
   struct tainted  *taint;
 
   // for GEP inst.
