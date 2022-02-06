@@ -186,8 +186,9 @@ struct tainted_gep_info {
 
 };
 
-typedef struct tainted_info* cmp_tainted_map[CMP_MAP_W][CMP_MAP_H];
-typedef struct tainted_info* mem_tainted_map[MEM_MAP_W][MEM_MAP_H];
+typedef struct tainted_info* 
+  tainted_map[CMP_MAP_W > MEM_MAP_W ? CMP_MAP_W : MEM_MAP_W]
+             [CMP_MAP_H > MEM_MAP_H ? CMP_MAP_H : MEM_MAP_H];
 
 struct queue_entry {
 
@@ -638,10 +639,9 @@ typedef struct afl_state {
       tainted_len,
       ht_tainted[MEMLOG_HOOK_NUM];
   u8  taint_mode;
-  
-  mem_tainted_map *mem_tmp_tainted;
-  cmp_tainted_map *cmp_tmp_tainted;
 
+  tainted_map *tmp_tainted;  
+  
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
       subseq_tmouts;                    /* Number of timeouts in a row      */
 

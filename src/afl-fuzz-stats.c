@@ -1229,7 +1229,7 @@ void show_stats(afl_state_t *afl) {
 
     }
 
-    SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
+    /*SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
     sprintf(tmp, "%d", afl->log_id);
     SAYF(bV bSTOP "          id : "  cRST "%-36s " bSTG bV"\n", tmp);        
   
@@ -1312,12 +1312,12 @@ void show_stats(afl_state_t *afl) {
     SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV "\n", tmp);                  
     
     sprintf(tmp, "%llu", afl->log_val);
-    SAYF(bV bSTOP "         val : "  cRST "%-36s " bSTG bV, tmp);   
+    SAYF(bV bSTOP "         val : "  cRST "%-36s " bSTG bV, tmp);  */ 
           
   }
 
   /* Last line */
-  SAYF(SET_G1 "\n" bSTG bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1);
+  SAYF(SET_G1 bSTG bLB bH30 bH20 bH2 bRB bSTOP cRST RESET_G1);
 
 #undef IB
 

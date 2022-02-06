@@ -5,6 +5,27 @@
 
 #define SLIGHT_TAINTED 8
 
+struct taint_operations {
+
+  void (*check_unstable)(afl_state_t *afl);
+  void (*inference)(afl_state_t *afl, u32 ofs);
+  u8   (*common_fuzz_staff)(afl_state_t *afl, u8 *out_buf, u32 len);
+  
+};
+
+struct taint_taint_mode {
+
+  void *map;
+  void *orig_map;
+  u32 map_size;
+  afl_forkserver_t *fsrv;
+  u32 fsrv_map_size;
+  struct taint_operations ops;
+
+};
+
+static struct taint_taint_mode taint_mode;
+
 enum cmplog_type {
 
   CMP_V0 = 0,
@@ -71,81 +92,79 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
 }
 
-static void add_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 idx, u8 mode) {
+static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs) {
   
   struct tainted_info *new_info;
-  struct mem_map *m_map = afl->shm.mem_map;
   struct cmp_map *c_map = afl->shm.cmp_map;
 
-  if (mode == TAINT_CMP) {
-    
-    if ((*afl->cmp_tmp_tainted)[id][hits] == NULL) {
-    
-      new_info = ck_alloc(sizeof(struct tainted_info));
-      new_info->id = id;
-      new_info->hits = hits;
-      new_info->inst_type = c_map->headers[id].type;
-      new_info->type = type;
-      new_info->cksum = c_map->cksum[id][hits];
+  if ((*afl->tmp_tainted)[id][hits] == NULL) {
+  
+    new_info = ck_alloc(sizeof(struct tainted_info));
+    new_info->id = id;
+    new_info->hits = hits;
+    new_info->inst_type = c_map->headers[id].type;
+    new_info->type = type;
+    new_info->cksum = c_map->cksum[id][hits];
 
-      new_info->taint = add_tainted(new_info->taint, ofs, 1);
+    new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
-      (*afl->cmp_tmp_tainted)[id][hits] = new_info;
+    (*afl->tmp_tainted)[id][hits] = new_info;
 
-      afl->queue_cur->taint_cur[mode]++;
-
-    }
-    else {
-
-      (*afl->cmp_tmp_tainted)[id][hits]->taint = 
-        add_tainted((*afl->cmp_tmp_tainted)[id][hits]->taint, ofs, 1);
-    }
+    afl->queue_cur->taint_cur[TAINT_CMP]++;
 
   }
   else {
 
-    if ((*afl->mem_tmp_tainted)[id][hits] == NULL) {
+    (*afl->tmp_tainted)[id][hits]->taint = 
+      add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, 1);
+  }
+
+}
+
+static void add_mem_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 idx) {
+  
+  struct tainted_info *new_info;
+  struct mem_map *m_map = afl->shm.mem_map;
+  if ((*afl->tmp_tainted)[id][hits] == NULL) {
       
-      new_info = ck_alloc(sizeof(struct tainted_info));
-      new_info->id = id;
-      new_info->hits = hits;
-      new_info->inst_type = m_map->headers[id].type;
-      new_info->type = type;
-      new_info->cksum = m_map->cksum[id][hits];
+    new_info = ck_alloc(sizeof(struct tainted_info));
+    new_info->id = id;
+    new_info->hits = hits;
+    new_info->inst_type = m_map->headers[id].type;
+    new_info->type = type;
+    new_info->cksum = m_map->cksum[id][hits];
 
-      if (m_map->headers[id].type == HT_GEP_HOOK) {
-        
-        new_info->gep = ck_alloc(sizeof(struct tainted_gep_info));
-        new_info->gep->size = m_map->log[id][hits].__hook_va_arg.size;
-        new_info->gep->num_of_idx = m_map->headers[id].num_of_idx;
-        new_info->gep->idx_taint = ck_alloc(sizeof(struct tainted *) * new_info->gep->num_of_idx);
-        new_info->gep->idx_taint[idx] = add_tainted(new_info->gep->idx_taint[idx], ofs, 1);
-
-      }
-
-      new_info->taint = add_tainted(new_info->taint, ofs, 1);
-
-      (*afl->mem_tmp_tainted)[id][hits] = new_info;
+    if (m_map->headers[id].type == HT_GEP_HOOK) {
       
-      afl->queue_cur->taint_cur[mode]++;
+      new_info->gep = ck_alloc(sizeof(struct tainted_gep_info));
+      new_info->gep->size = m_map->log[id][hits].__hook_va_arg.size;
+      new_info->gep->num_of_idx = m_map->headers[id].num_of_idx;
+      new_info->gep->idx_taint = ck_alloc(sizeof(struct tainted *) * new_info->gep->num_of_idx);
+      new_info->gep->idx_taint[idx] = add_tainted(new_info->gep->idx_taint[idx], ofs, 1);
 
     }
-    else {
-      
-      if (m_map->headers[id].type == HT_GEP_HOOK) {
 
-        (*afl->mem_tmp_tainted)[id][hits]->gep->idx_taint[idx] = 
-          add_tainted((*afl->mem_tmp_tainted)[id][hits]->gep->idx_taint[idx], ofs, 1);
+    new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
-      }
-
-      (*afl->mem_tmp_tainted)[id][hits]->taint = 
-        add_tainted((*afl->mem_tmp_tainted)[id][hits]->taint, ofs, 1);
-      
-    }
+    (*afl->tmp_tainted)[id][hits] = new_info;
+    
+    afl->queue_cur->taint_cur[TAINT_MEM]++;
 
   }
-  
+  else {
+    
+    if (m_map->headers[id].type == HT_GEP_HOOK) {
+
+      (*afl->tmp_tainted)[id][hits]->gep->idx_taint[idx] = 
+        add_tainted((*afl->tmp_tainted)[id][hits]->gep->idx_taint[idx], ofs, 1);
+
+    }
+
+    (*afl->tmp_tainted)[id][hits]->taint = 
+      add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, 1);
+    
+  }
+
 }
 
 static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
@@ -259,35 +278,25 @@ static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
  * Such as the program apply randomness to certain part of progam state 
  * 
  */
-u8 check_unstable(afl_state_t *afl, u8 *orig_buf, u32 len, u8 mode) {
+void cmp_check_unstable(afl_state_t *afl) {
 
-  if (mode == TAINT_CMP) {
+  for(u32 i = 0; i < CMP_MAP_W; i++) {
 
-    memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
-    if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) return 1;
-
-    for(u32 i = 0; i < CMP_MAP_W; i++) {
-
-      if (afl->shm.cmp_map->headers[i].hits != afl->orig_cmp_map->headers[i].hits)
-        afl->orig_cmp_map->headers[i].hits = 0;
-
-    }
+    if (afl->shm.cmp_map->headers[i].hits != afl->orig_cmp_map->headers[i].hits)
+      afl->orig_cmp_map->headers[i].hits = 0;
 
   }
-  else {
-  
-    if (unlikely(common_fuzz_memlog_stuff(afl, orig_buf, len))) return 1;
 
-    for(u32 i = 0; i < MEM_MAP_W; i++) {
-    
-      if (afl->shm.mem_map->headers[i].hits != afl->orig_mem_map->headers[i].hits) 
-        afl->orig_mem_map->headers[i].hits = 0;    
-  
-    }
+}
+
+void mem_check_unstable(afl_state_t *afl) {
+
+  for(u32 i = 0; i < MEM_MAP_W; i++) {
+
+    if (afl->shm.mem_map->headers[i].hits != afl->orig_mem_map->headers[i].hits)
+      afl->orig_mem_map->headers[i].hits = 0;
 
   }
-  
-  return 0;
 
 }
 
@@ -1492,7 +1501,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
             add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_tainted_info(afl, i, j, CMP_V0, ofs, 0, TAINT_CMP);
+        add_cmp_tainted_info(afl, i, j, CMP_V0, ofs);
   
       }
       // only handle one situation
@@ -1500,7 +1509,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
             add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_tainted_info(afl, i, j, CMP_V1, ofs, 0, TAINT_CMP);
+        add_cmp_tainted_info(afl, i, j, CMP_V1, ofs);
 
       }
     
@@ -1581,7 +1590,7 @@ void mem_inference(afl_state_t *afl, u32 ofs) {
             
             afl->queue_cur->c_bytes[TAINT_MEM] = 
               add_tainted(afl->queue_cur->c_bytes[TAINT_MEM], ofs, 1);
-            add_tainted_info(afl, i, j, MEM_SIZE, ofs, 0, TAINT_MEM);
+            add_mem_tainted_info(afl, i, j, MEM_SIZE, ofs, 0);
 
           }
           break;
@@ -1611,7 +1620,7 @@ void mem_inference(afl_state_t *afl, u32 ofs) {
   
               afl->queue_cur->c_bytes[TAINT_MEM] = 
                 add_tainted(afl->queue_cur->c_bytes[TAINT_MEM], ofs, 1);
-              add_tainted_info(afl, i, j, MEM_IDX, ofs, idx, TAINT_MEM);
+              add_mem_tainted_info(afl, i, j, MEM_IDX, ofs, idx);
             
             }
 
@@ -1638,35 +1647,25 @@ void mem_inference(afl_state_t *afl, u32 ofs) {
 }
 
 
-u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
+u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   
   // u64 cksum, exec_cksum;
   // orig exec
-  if (mode == TAINT_CMP) {
-    
-    // Reset cmplog bitmap before each execution.
-    memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
-    if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) return 1;
-    
-    memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
-
-    // orig cksum
-    // cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
-
-  }
-  else {
   
-    if (unlikely(common_fuzz_memlog_stuff(afl, orig_buf, len))) return 1;
+  // Reset bitmap before each execution.
+  memset(taint_mode.map, 0, taint_mode.map_size);
+  if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
+  
+  memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
 
-    memcpy(afl->orig_mem_map, afl->shm.mem_map, sizeof(struct mem_map));
+  // orig cksum
+  // cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
 
-    // orig cksum
-    // cksum = hash64(afl->memlog_fsrv.trace_bits, afl->memlog_fsrv.map_size, HASH_CONST);
-
-  }
- 
   // check unstable
-  if(check_unstable(afl, orig_buf, len, mode)) return 1;
+  memset(taint_mode.map, 0, taint_mode.map_size);
+  if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
+  
+  (*taint_mode.ops.check_unstable)(afl);
 
   // taint
   for(u32 i = 0; i < len; i++) {
@@ -1707,53 +1706,31 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
        *   if (afl->orig_mem_map->cksum[k][l] != afl->shm.mem_map->cksum[k][l]) continue;
        * 
        */
-      if (mode == TAINT_CMP) {
         
-        // execute
-        memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
-        if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) {
+      // execute
+      memset(taint_mode.map, 0, taint_mode.map_size);
+      if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, buf, len))) {
 
-          // reset buffer
-          buf[i] = orig_buf[i];
-          continue;
-
-        }
-
-        //update stat
-        if (!(afl->stage_cur % afl->stats_update_freq) ||
-          afl->stage_cur + 1 == afl->stage_max) {
-
-          show_stats(afl);
-
-        }
-        // directly use cmp_map afl bitmap
-        // exec_cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
-        // if (exec_cksum != cksum) continue;
-
-        // infer result
-        cmp_inference(afl, i);
+        // reset buffer
+        buf[i] = orig_buf[i];
+        continue;
 
       }
-      else {
-        
-        // execute
-        if (unlikely(common_fuzz_memlog_stuff(afl, buf, len))) {
-        
-          // reset buffer
-          buf[i] = orig_buf[i];
-          continue;
-      
-        }
 
-        // directly use mem_map afl bitmap
-        // exec_cksum = hash64(afl->memlog_fsrv.trace_bits, afl->memlog_fsrv.map_size, HASH_CONST);
-        // if (exec_cksum != cksum) continue;
+      //update stat
+      if (!(afl->stage_cur % afl->stats_update_freq) ||
+        afl->stage_cur + 1 == afl->stage_max) {
 
-        // infer result
-        mem_inference(afl, i);
+        show_stats(afl);
 
       }
-    
+      // directly use cmp map or mem map afl bitmap
+      // exec_cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
+      // if (exec_cksum != cksum) continue;
+
+      // infer result
+      (*taint_mode.ops.inference)(afl, i);
+
       // reset buffer
       buf[i] = orig_buf[i];
 
@@ -1789,14 +1766,48 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     map_w = CMP_MAP_W;
     map_h = CMP_MAP_H;
 
+    taint_mode.ops.check_unstable = cmp_check_unstable;
+    taint_mode.ops.common_fuzz_staff = common_fuzz_cmplog_stuff;
+    taint_mode.ops.inference = cmp_inference;
+    taint_mode.map = afl->shm.cmp_map;
+    
+    if (unlikely(!afl->orig_cmp_map)) {
+
+      afl->orig_cmp_map = ck_alloc(sizeof(struct cmp_map));
+
+    }
+    taint_mode.orig_map = afl->orig_cmp_map;
+    taint_mode.map_size = sizeof(struct cmp_map);
+    
+    taint_mode.fsrv = &afl->cmplog_fsrv;
+    taint_mode.fsrv_map_size = afl->cmplog_fsrv.map_size;
+
   }
   else {
 
     map_w = MEM_MAP_W;
     map_h = MEM_MAP_H;
 
-  }
+    taint_mode.ops.check_unstable = mem_check_unstable;
+    taint_mode.ops.common_fuzz_staff = common_fuzz_memlog_stuff;
+    taint_mode.ops.inference = mem_inference;
+    taint_mode.map = afl->shm.mem_map;
+    
+    if (unlikely(!afl->orig_mem_map)) {
+      
+      afl->orig_mem_map = ck_alloc(sizeof(struct mem_map));
 
+    }
+    taint_mode.orig_map = afl->orig_mem_map;
+    taint_mode.map_size = sizeof(struct mem_map);
+
+    taint_mode.fsrv = &afl->memlog_fsrv;
+    taint_mode.fsrv_map_size = afl->memlog_fsrv.map_size;
+
+  }
+  // reset orig map
+  memset(taint_mode.orig_map, 0, taint_mode.map_size);
+    
   // set pass stats
   if (unlikely(!afl->pass_stats[mode])) {
 
@@ -1804,48 +1815,18 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
 
   }
 
-  if (mode == TAINT_CMP) {
+  // tmp tainted map init
+  if (unlikely(!afl->tmp_tainted)) {
     
-    // tmp tainted map init
-    if (unlikely(!afl->cmp_tmp_tainted)) {
-    
-      afl->cmp_tmp_tainted = ck_alloc(sizeof(cmp_tainted_map));
-
-    }
-    memset(afl->cmp_tmp_tainted, 0, sizeof(struct tainted_info *) * map_w * map_h);
-
-    // orig map
-    if (unlikely(!afl->orig_cmp_map)) {
-    
-      afl->orig_cmp_map = ck_alloc(sizeof(struct cmp_map));
-  
-    }
-    memset(afl->orig_cmp_map, 0, sizeof(struct cmp_map));
+    afl->tmp_tainted = ck_alloc(sizeof(tainted_map));
 
   }
-  else {
-    
-    // tmp tainted map init
-    if (unlikely(!afl->mem_tmp_tainted)) {
-    
-      afl->mem_tmp_tainted = ck_alloc(sizeof(mem_tainted_map));
-
-    }
-    memset(afl->mem_tmp_tainted, 0, sizeof(struct tainted_info *) * map_w * map_h);
-
-    // orig map
-    if (unlikely(!afl->orig_mem_map)) {
-    
-      afl->orig_mem_map = ck_alloc(sizeof(struct mem_map));
+  memset(afl->tmp_tainted, 0, sizeof(struct taint_info *) * map_w * map_h);
   
-    }
-    memset(afl->orig_mem_map, 0, sizeof(struct mem_map));
-
-  }
 
   if (afl->queue_cur->taint[mode] == NULL && !afl->queue_cur->taint_failed[mode]) {
-    // taint-inference
-    if (taint(afl, buf, orig_buf, len, mode)) {
+    // taint inference
+    if (taint(afl, buf, orig_buf, len)) {
       
       // taint failed
       afl->queue_cur->taint_failed[mode]++;
@@ -1870,17 +1851,11 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
       
       for(u32 j = 0; j < map_h; j++) {  
         
-        if (mode == TAINT_CMP && (*afl->cmp_tmp_tainted)[i][j] != NULL) {
+        if ((*afl->tmp_tainted)[i][j] != NULL) {
           
           // store per tainted inst. 
-          afl->queue_cur->taint[mode][cur++] = (*afl->cmp_tmp_tainted)[i][j];  
+          afl->queue_cur->taint[mode][cur++] = (*afl->tmp_tainted)[i][j];  
         
-        }
-        else if (mode == TAINT_MEM && (*afl->mem_tmp_tainted)[i][j] != NULL) {
-          
-          // store per tainted inst. 
-          afl->queue_cur->taint[mode][cur++] = (*afl->mem_tmp_tainted)[i][j];  
-
         }
 
       }  
@@ -1944,8 +1919,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   }
   else {
 
-    r_max = MIN(afl->queue_cur->taint_cur[mode] / 2, 
-      1 << (1 + rand_below(afl, HAVOC_STACK_POW2)));
+    r_max = MIN((u32)(afl->queue_cur->taint_cur[mode] / 2), 
+      (u32)(1 << (1 + rand_below(afl, HAVOC_STACK_POW2))));
 
   }
 
@@ -1957,16 +1932,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
 
     memcpy(buf, orig_buf, len);
     
-    if (mode == TAINT_CMP) {
-      
-      memcpy(afl->shm.cmp_map, afl->orig_cmp_map, sizeof(struct cmp_map));
-
-    }
-    else {
-      
-      memcpy(afl->shm.mem_map, afl->orig_mem_map, sizeof(struct mem_map));
-
-    }
+    memcpy(taint_mode.map, taint_mode.orig_map, taint_mode.map_size);
 
     tmp = afl->queue_cur->taint[mode][r];
 

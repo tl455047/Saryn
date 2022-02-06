@@ -41,9 +41,6 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   write_to_testcase(afl, out_buf, len);
 
-  // Reset memlog bitmap before each execution.
-  memset(afl->shm.mem_map, 0, sizeof(struct mem_map));
-
   fault = fuzz_run_target(afl, &afl->memlog_fsrv, afl->fsrv.exec_tmout);
 
   if (afl->stop_soon) { return 1; }
