@@ -1331,7 +1331,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
   
   while(t != NULL) {
   
-    fprintf(f, "%u,%u\n", t->pos, t->len);
+    fprintf(f, "%u-%u\n", t->pos, t->len);
     t = t->next;
   
   }
@@ -1356,7 +1356,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
       
       if (tmp[i]->inst_type == HT_GEP_HOOK) {
         
-        fprintf(f, "%u,%u\n", tmp[i]->id, tmp[i]->gep->size);
+        fprintf(f, "%u-%u\n", tmp[i]->id, tmp[i]->gep->size);
       
       }
 
