@@ -503,7 +503,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
    * TRIMMING *
    ************/
 
-  if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
+  /*if (unlikely(!afl->non_instrumented_mode && !afl->queue_cur->trim_done &&
                !afl->disable_trim)) {
 
     u32 old_len = afl->queue_cur->len;
@@ -522,18 +522,18 @@ u8 fuzz_one_original(afl_state_t *afl) {
       ++afl->cur_skipped_items;
       goto abandon_entry;
 
-    }
+    }*/
 
     /* Don't retry trimming, even if it failed. */
 
-    afl->queue_cur->trim_done = 1;
+    /*afl->queue_cur->trim_done = 1;
 
-    len = afl->queue_cur->len;
+    len = afl->queue_cur->len;*/
 
     /* maybe current entry is not ready for splicing anymore */
-    if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
+    /*if (unlikely(len <= 4 && old_len > 4)) --afl->ready_for_splicing_count;
 
-  }
+  }*/
 
   memcpy(out_buf, in_buf, len);
 
@@ -553,7 +553,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  if (unlikely(afl->shm.cmplog_mode &&
+  /*if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
 
@@ -579,10 +579,11 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
-  }
+  }*/
 
   // cmplog mode
-  if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
+  // if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
+  if (unlikely(afl->shm.cmplog_mode)) {  
     memcpy(out_buf, in_buf, len);
     if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP)) {
 

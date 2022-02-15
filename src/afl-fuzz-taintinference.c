@@ -1675,6 +1675,13 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       
       afl->stage_cur++;
+      //update stat
+      if (!(afl->stage_cur % afl->stats_update_freq) ||
+        afl->stage_cur + 1 == afl->stage_max) {
+
+        show_stats(afl);
+
+      }
       // byte-level mutate
       byte_level_mutate(afl, buf, i, j); 
       /**
@@ -1706,7 +1713,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
        *   if (afl->orig_mem_map->cksum[k][l] != afl->shm.mem_map->cksum[k][l]) continue;
        * 
        */
-        
+      
       // execute
       memset(taint_mode.map, 0, taint_mode.map_size);
       if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, buf, len))) {
@@ -1716,21 +1723,14 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
         continue;
 
       }
-
-      //update stat
-      if (!(afl->stage_cur % afl->stats_update_freq) ||
-        afl->stage_cur + 1 == afl->stage_max) {
-
-        show_stats(afl);
-
-      }
+      
       // directly use cmp map or mem map afl bitmap
       // exec_cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
       // if (exec_cksum != cksum) continue;
-
+      
       // infer result
       (*taint_mode.ops.inference)(afl, i);
-
+      
       // reset buffer
       buf[i] = orig_buf[i];
 
