@@ -32,6 +32,8 @@ enum cmplog_type {
   CMP_V1 = 1,
   CMP_V0_128 = 2,
   CMP_V1_128 = 3,
+  RTN_V0 = 4,
+  RTN_V1 = 5,
 
 };
 
@@ -117,6 +119,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
 
     (*afl->tmp_tainted)[id][hits]->taint = 
       add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, 1);
+
   }
 
 }
@@ -1054,6 +1057,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
     
     queue_fn = alloc_printf("%s/taint/cmp/id:%06u,%06u,ls,debug", 
       afl->out_dir, afl->queue_cur->id, afl->tainted_len);
+
   }
   else {
 
@@ -1262,6 +1266,62 @@ void taint_debug(afl_state_t *afl, u8 mode) {
 
 }
 
+void taint_free(struct tainted *taint) {
+  
+  struct tainted *t = taint;
+  while(t != NULL) {
+
+    taint = t->next;
+    ck_free(t);
+    t = taint;
+
+  }
+  
+}
+
+void taint_info_free(afl_state_t *afl, struct queue_entry *q) {
+
+  struct tainted_info *info;
+  // cmplog mode
+  if (afl->shm.cmplog_mode) {
+    // free c_bytes
+    taint_free(q->c_bytes[TAINT_CMP]);
+    // free taint
+    for(u32 i = 0; i < q->taint_cur[TAINT_CMP]; i++) {
+      
+      taint_free(q->taint[TAINT_CMP][i]->taint);
+      ck_free(q->taint[TAINT_CMP][i]);
+    
+    }
+
+  }
+  // memlog mode
+  if (afl->shm.memlog_mode) {
+    // free c_bytes
+    taint_free(q->c_bytes[TAINT_MEM]);
+    // free taint
+    for(u32 i = 0; i < q->taint_cur[TAINT_MEM]; i++) {
+      
+      info = q->taint[TAINT_MEM][i];
+      taint_free(info->taint);
+      
+      if (info->type == HT_GEP_HOOK) {
+
+        for(u32 j = 0; j < info->gep->num_of_idx; j++) {
+          
+          taint_free(info->gep->idx_taint[j]);
+        
+        }
+      }
+      
+      ck_free(info);
+    
+    }
+
+  }
+
+}
+
 void update_state(afl_state_t *afl, u8 mode) {
   
   struct tainted *t;
@@ -1368,21 +1428,191 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
   }
   
 }
-
-void cmp_inference(afl_state_t *afl, u32 ofs) {
-
+// cmplog mode instruction inference
+void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
+  
   struct cmp_operands *o = NULL, *orig_o = NULL;
 
 #ifdef WORD_SIZE_64
   u32  is_n = 0;
   u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
 #endif
-  
-  u32 loggeds, hshape;
-  u64 s_v0, s_v1;
+  u32 hshape;
+  /*u64 s_v0, s_v1;
   u8  s_v0_fixed = 1, s_v1_fixed = 1;
   u8  s_v0_inc = 1, s_v1_inc = 1;
-  u8  s_v0_dec = 1, s_v1_dec = 1;
+  u8  s_v0_dec = 1, s_v1_dec = 1;*/
+  
+  hshape = SHAPE_BYTES(afl->shm.cmp_map->headers[i].shape);
+
+  #ifdef WORD_SIZE_64
+    switch (hshape) {
+
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+        break;
+      default:
+        is_n = 1;
+
+    }
+  #endif
+
+  for(u32 j = 0; j < loggeds; j++) {
+        
+    //common subpath check
+    if (afl->orig_cmp_map->cksum[i][j] != afl->shm.cmp_map->cksum[i][j]) continue;
+
+    o = &afl->shm.cmp_map->log[i][j];
+    orig_o = &afl->orig_cmp_map->log[i][j];
+
+    // loop detection code
+    /*if (j == 0) {
+
+      s_v0 = o->v0;
+      s_v1 = o->v1;
+
+    } else {
+
+      if (s_v0 != o->v0) { s_v0_fixed = 0; }
+      if (s_v1 != o->v1) { s_v1_fixed = 0; }
+      if (s_v0 + 1 != o->v0) { s_v0_inc = 0; }
+      if (s_v1 + 1 != o->v1) { s_v1_inc = 0; }
+      if (s_v0 - 1 != o->v0) { s_v0_dec = 0; }
+      if (s_v1 - 1 != o->v1) { s_v1_dec = 0; }
+      s_v0 = o->v0;
+      s_v1 = o->v1;
+
+    }*/
+
+    for (u32 k = 0; k < j; ++k) {
+
+      if (afl->shm.cmp_map->log[i][k].v0 == o->v0 &&
+          afl->shm.cmp_map->log[i][k].v1 == o->v1) {
+
+        goto ins_inference_next_iter;
+
+      }
+
+    }
+
+#ifdef WORD_SIZE_64
+    if (unlikely(is_n)) {
+
+      s128_v0 = ((u128)o->v0) + (((u128)o->v0_128) << 64);
+      s128_v1 = ((u128)o->v1) + (((u128)o->v1_128) << 64);
+      orig_s128_v0 = ((u128)orig_o->v0) + (((u128)orig_o->v0_128) << 64);
+      orig_s128_v1 = ((u128)orig_o->v1) + (((u128)orig_o->v1_128) << 64);
+
+    }
+
+#endif
+
+#ifdef WORD_SIZE_64
+    if (is_n) {  // _ExtInt special case including u128
+
+      // not handling yet
+      if (s128_v0 != orig_s128_v0) {
+
+        afl->queue_cur->c_bytes[TAINT_CMP] = 
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs);
+          
+      }
+      else if (s128_v1 != orig_s128_v1) {
+        
+        afl->queue_cur->c_bytes[TAINT_CMP] = 
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs);
+
+      }
+
+    }
+
+#endif
+    
+    if (o->v0 != orig_o->v0) {
+      
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+      add_cmp_tainted_info(afl, i, j, CMP_V0, ofs);
+
+    }
+    // only handle one situation
+    else if (o->v1 != orig_o->v1) {
+      
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+      add_cmp_tainted_info(afl, i, j, CMP_V1, ofs);
+
+    }
+  
+  ins_inference_next_iter:
+    continue;
+
+  }
+
+  // is this really useful ???
+  /*if (loggeds > 3 && ((s_v0_fixed && s_v1_inc) || (s_v1_fixed && s_v0_inc) ||
+                    (s_v0_fixed && s_v1_dec) || (s_v1_fixed && s_v0_dec))) {
+    //ignore loop
+    afl->pass_stats[TAINT_CMP][i].total = afl->pass_stats[TAINT_CMP][i].faileds = 0xff;
+
+  }*/
+
+}
+
+void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
+
+  struct cmpfn_operands *o = NULL, *orig_o = NULL;
+
+  for(u32 j = 0; j < loggeds; j++) {
+        
+    //common subpath check
+    if (afl->orig_cmp_map->cksum[i][j] != afl->shm.cmp_map->cksum[i][j]) continue;
+
+    o = &((struct cmpfn_operands *)afl->shm.cmp_map->log[i])[j];
+    orig_o = &((struct cmpfn_operands *)afl->orig_cmp_map->log[i])[j];
+
+    
+    for (u32 k = 0; k < j; ++k) {
+
+      if (!memcmp(&((struct cmpfn_operands *)afl->shm.cmp_map->log[i])[k], o,
+                  sizeof(struct cmpfn_operands))) {
+
+        goto rtn_inference_next_iter;
+
+      }
+    
+    }
+     
+    if (o->v0_len != orig_o->v0_len || memcmp(o->v0, orig_o->v0, sizeof(struct cmpfn_operands))) {
+
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs);
+
+    }
+
+    if (o->v1_len != orig_o->v1_len || memcmp(o->v1, orig_o->v1, sizeof(struct cmpfn_operands))) {
+      
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
+      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs);
+
+    }
+
+    rtn_inference_next_iter:
+      continue;
+
+  }
+
+}
+
+void cmp_inference(afl_state_t *afl, u32 ofs) {
+  
+  u32 loggeds;
 
   for(u32 i = 0; i < CMP_MAP_W; i++) {
 
@@ -1397,134 +1627,18 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
 
     if (loggeds > CMP_MAP_H) 
       loggeds = CMP_MAP_H;
-
-    hshape = SHAPE_BYTES(afl->shm.cmp_map->headers[i].shape);
-
-#ifdef WORD_SIZE_64
-  switch (hshape) {
-
-    case 1:
-    case 2:
-    case 4:
-    case 8:
-      break;
-    default:
-      is_n = 1;
-
-  }
-
-#endif
-
-    for(u32 j = 0; j < loggeds; j++) {
-      
-      //common subpath check
-      if (afl->orig_cmp_map->cksum[i][j] != afl->shm.cmp_map->cksum[i][j]) continue;
-
-      if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
-
-        o = &afl->shm.cmp_map->log[i][j];
-        orig_o = &afl->orig_cmp_map->log[i][j];
-
-      }
-      else {
-        // rtn
-        continue;
-
-      }
-
-      // loop detection code
-      if (j == 0) {
-
-        s_v0 = o->v0;
-        s_v1 = o->v1;
-
-      } else {
-
-        if (s_v0 != o->v0) { s_v0_fixed = 0; }
-        if (s_v1 != o->v1) { s_v1_fixed = 0; }
-        if (s_v0 + 1 != o->v0) { s_v0_inc = 0; }
-        if (s_v1 + 1 != o->v1) { s_v1_inc = 0; }
-        if (s_v0 - 1 != o->v0) { s_v0_dec = 0; }
-        if (s_v1 - 1 != o->v1) { s_v1_dec = 0; }
-        s_v0 = o->v0;
-        s_v1 = o->v1;
-
-      }
-
-      for (u32 k = 0; k < j; ++k) {
-
-        if (afl->shm.cmp_map->log[i][k].v0 == o->v0 &&
-            afl->shm.cmp_map->log[i][k].v1 == o->v1) {
-
-          goto cmp_inference_next_iter;
-
-        }
-
-      }
-
-#ifdef WORD_SIZE_64
-      if (unlikely(is_n)) {
-
-        s128_v0 = ((u128)o->v0) + (((u128)o->v0_128) << 64);
-        s128_v1 = ((u128)o->v1) + (((u128)o->v1_128) << 64);
-        orig_s128_v0 = ((u128)orig_o->v0) + (((u128)orig_o->v0_128) << 64);
-        orig_s128_v1 = ((u128)orig_o->v1) + (((u128)orig_o->v1_128) << 64);
-
-      }
-
-#endif
-
-#ifdef WORD_SIZE_64
-      if (is_n) {  // _ExtInt special case including u128
-
-        // not handling yet
-        if ((s128_v0 != orig_s128_v0 || s128_v1 != orig_s128_v1) && orig_s128_v0 != orig_s128_v1) {
-
-          /*afl->queue_cur->c_bytes[TAINT_CMP] = 
-            add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-          add_tainted_info(afl, i, j, CMP_V0_128, ofs, 0, TAINT_CMP);*/
-            
-        }
-        else if (s128_v1 != orig_s128_v1 && orig_s128_v0 != orig_s128_v1) {
-          
-          /*afl->queue_cur->c_bytes[TAINT_CMP] = 
-            add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-          add_tainted_info(afl, i, j, CMP_V1_128, ofs, 0, TAINT_CMP);*/
-
-        }
-
-      }
-
-#endif
-      
-      if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
-        
-        afl->queue_cur->c_bytes[TAINT_CMP] = 
-            add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V0, ofs);
-  
-      }
-      // only handle one situation
-      else if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
-        
-        afl->queue_cur->c_bytes[TAINT_CMP] = 
-            add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V1, ofs);
-
-      }
     
-    cmp_inference_next_iter:
-      continue;
+    if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
+      
+      ins_inference(afl, ofs, i, loggeds);
+
+    }
+    else {
+
+      rtn_inference(afl, ofs, i, loggeds);
 
     }
 
-    if (loggeds > 3 && ((s_v0_fixed && s_v1_inc) || (s_v1_fixed && s_v0_inc) ||
-                      (s_v0_fixed && s_v1_dec) || (s_v1_fixed && s_v0_dec))) {
-      //ignore loop
-      afl->pass_stats[TAINT_CMP][i].total = afl->pass_stats[TAINT_CMP][i].faileds = 0xff;
-
-    }
-  
   }
 
 }
@@ -1737,7 +1851,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     }
 
   }
-  
+
   return 0;
 
 }
@@ -1834,7 +1948,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
       return 1;
     
     }
-    
+
     if (!afl->queue_cur->taint_cur[mode]) {
       
       // taint failed
@@ -1978,6 +2092,12 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
         }
 
       }
+
+    }
+    else if (tmp->type == CMP_V0_128 || tmp->type == CMP_V1_128) {
+      
+      // not yet handling 128 linear search
+      continue;
 
     }
     else {

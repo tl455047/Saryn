@@ -170,7 +170,7 @@ struct tainted_info {
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
   u64 cksum;
-  struct tainted  *taint;
+  struct tainted *taint;
 
   // for GEP inst.
   struct tainted_gep_info *gep;
@@ -1220,6 +1220,8 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* Taint Inference */
 u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
+
+void taint_info_free(afl_state_t *afl, struct queue_entry *q);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

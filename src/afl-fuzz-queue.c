@@ -588,6 +588,9 @@ void destroy_queue(afl_state_t *afl) {
     struct queue_entry *q;
 
     q = afl->queue_buf[i];
+
+    taint_info_free(afl, q);
+    
     ck_free(q->fname);
     ck_free(q->trace_mini);
     ck_free(q);
