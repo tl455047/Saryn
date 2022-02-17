@@ -90,7 +90,8 @@ static void at_exit() {
 
   if (pid1 > 0) { kill(pid1, kill_signal); }
   if (pid2 > 0) { kill(pid2, kill_signal); }
-
+  if (pid3 > 0) { kill(pid3, kill_signal); }
+  
 }
 
 /* Display usage hints. */

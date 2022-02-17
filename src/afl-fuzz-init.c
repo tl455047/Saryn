@@ -2035,7 +2035,7 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   /* All recorded critical bytes */
   
-  if (afl->shm.memlog_mode) {
+  if (afl->shm.memlog_mode || afl->shm.cmplog_mode) {
     
     tmp = alloc_printf("%s/taint", afl->out_dir);
     if (mkdir(tmp, 0700)) { PFATAL("Unable to create '%s'", tmp); }

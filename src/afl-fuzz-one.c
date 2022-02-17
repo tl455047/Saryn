@@ -591,10 +591,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
   }
+  
   // memlog mode
-  // need to check input size, input size should be
-  // smaller than 2^16.
-  if (unlikely(afl->shm.memlog_mode) && len <= MEMLOG_MAXIMUM_INPUT_SIZE) {
+  if (unlikely(afl->shm.memlog_mode)) {
     memcpy(out_buf, in_buf, len);
     if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEM)) {
 

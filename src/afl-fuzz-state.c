@@ -594,6 +594,20 @@ void afl_states_stop(void) {
 
     if (el->fsrv.child_pid > 0) kill(el->fsrv.child_pid, el->fsrv.kill_signal);
     if (el->fsrv.fsrv_pid > 0) kill(el->fsrv.fsrv_pid, el->fsrv.kill_signal);
+    
+    if (el->shm.cmplog_mode) {
+      
+      if (el->cmplog_fsrv.child_pid > 0) kill(el->cmplog_fsrv.child_pid, el->cmplog_fsrv.kill_signal);
+      if (el->cmplog_fsrv.fsrv_pid > 0) kill(el->cmplog_fsrv.fsrv_pid, el->cmplog_fsrv.kill_signal);
+    
+    }
+
+    if (el->shm.memlog_mode) {
+      
+      if (el->memlog_fsrv.child_pid > 0) kill(el->memlog_fsrv.child_pid, el->memlog_fsrv.kill_signal);
+      if (el->memlog_fsrv.fsrv_pid > 0) kill(el->memlog_fsrv.fsrv_pid, el->memlog_fsrv.kill_signal);
+
+    }
 
   });
 

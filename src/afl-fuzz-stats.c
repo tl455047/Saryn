@@ -448,7 +448,7 @@ void show_stats(afl_state_t *afl) {
   u8        tmp[256];
   u8        time_tmp[64];
 
-  u8 val_buf[8][STRINGIFY_VAL_SIZE_MAX];
+  u8 val_buf[9][STRINGIFY_VAL_SIZE_MAX];
 #define IB(i) (val_buf[(i)])
 
   cur_ms = get_cur_time();

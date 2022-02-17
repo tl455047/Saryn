@@ -589,7 +589,7 @@ void destroy_queue(afl_state_t *afl) {
 
     q = afl->queue_buf[i];
 
-    taint_info_free(afl, q);
+    destroy_taint(afl, q);
     
     ck_free(q->fname);
     ck_free(q->trace_mini);

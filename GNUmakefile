@@ -31,7 +31,7 @@ VERSION     = $(shell grep '^$(HASH)define VERSION ' ../config.h | cut -d '"' -f
 
 # PROGS intentionally omit afl-as, which gets installed elsewhere.
 
-PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze
+PROGS       = afl-fuzz afl-showmap afl-tmin afl-gotcpu afl-analyze afl-taint
 SH_PROGS    = afl-plot afl-cmin afl-cmin.bash afl-whatsup afl-system-config afl-persistent-config afl-cc
 MANPAGES=$(foreach p, $(PROGS) $(SH_PROGS), $(p).8) afl-as.8
 ASAN_OPTIONS=detect_leaks=0
@@ -445,6 +445,9 @@ afl-analyze: src/afl-analyze.c src/afl-common.o src/afl-sharedmem.o src/afl-perf
 
 afl-gotcpu: src/afl-gotcpu.c src/afl-common.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-common.o -o $@ $(LDFLAGS)
+
+afl-taint: src/afl-taint.c $(COMM_HDR) include/afl-fuzz.h src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o | test_x86
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTP) $(wildcard src/afl-fuzz-*.c) src/$@.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(LDFLAGS)
 
 .PHONY: document
 document:	afl-fuzz-document
