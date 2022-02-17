@@ -1329,24 +1329,29 @@ void destroy_taint(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
-void update_state(afl_state_t *afl, u8 mode) {
+void update_c_bytes_len(afl_state_t *afl, u8 mode) {
   
   struct tainted *t;
+  
+  afl->tainted_len = 0;
+  t = afl->queue_cur->c_bytes[mode];
+  while(t != NULL) {
+
+    afl->tainted_len += t->len;
+    t = t->next;
+
+  }
+
+}
+
+void update_state(afl_state_t *afl, u8 mode) {
+  
   struct tainted_info **tmp;
 
   // update tainted input length
-  if (afl->tainted_len == 0) {
-  
-    t = afl->queue_cur->c_bytes[mode];
-    while(t != NULL) {
+  if (!afl->tainted_len)   
+    update_c_bytes_len(afl, mode);
 
-        afl->tainted_len += t->len;
-        t = t->next;
-
-    }
-  
-  }
-  
   // update tainted inst.
   tmp = afl->queue_cur->taint[mode];
   for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
@@ -1370,27 +1375,23 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
   FILE *f;
   
   // update tainted input length
-  t = afl->queue_cur->c_bytes[mode];
-  while(t != NULL) {
-
-    afl->tainted_len += t->len;
-    t = t->next;
-
-  }  
+  update_c_bytes_len(afl, mode);
 
   // critical bytes 
   if (mode == TAINT_CMP) {
 
-    queue_fn = alloc_printf("%s/taint/cmp/id:%06u,%06u,time:%llu.symranges", 
+    queue_fn = alloc_printf("%s/taint/cmp/id:%06u,%06u,time:%llu,%s.symranges", 
       afl->out_dir, afl->queue_cur->id, afl->tainted_len, 
-      get_cur_time() + afl->prev_run_time - afl->start_time);
+      get_cur_time() + afl->prev_run_time - afl->start_time, 
+      strrchr(afl->queue_cur->fname, '/') + 1);
 
   }
   else {
 
-    queue_fn = alloc_printf("%s/taint/mem/id:%06u,%06u,time:%llu.symranges", 
+    queue_fn = alloc_printf("%s/taint/mem/id:%06u,%06u,time:%llu,%s.symranges", 
       afl->out_dir, afl->queue_cur->id, afl->tainted_len, 
-      get_cur_time() + afl->prev_run_time - afl->start_time);
+      get_cur_time() + afl->prev_run_time - afl->start_time,
+      strrchr(afl->queue_cur->fname, '/') + 1);
 
   }
  
@@ -1411,9 +1412,10 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
   // GEP size
   if (mode == TAINT_MEM) {
 
-    queue_fn = alloc_printf("%s/taint/mem/size/id:%06u,%06u,time:%llu", 
+    queue_fn = alloc_printf("%s/taint/mem/size/id:%06u,%06u,time:%llu,%s", 
       afl->out_dir, afl->queue_cur->id, afl->tainted_len,
-      get_cur_time() + afl->prev_run_time - afl->start_time);
+      get_cur_time() + afl->prev_run_time - afl->start_time, 
+      strrchr(afl->queue_cur->fname, '/') + 1);
     
     f = create_ffile(queue_fn);
 
@@ -1929,7 +1931,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
 }
 
-u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
+u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   // u64 cksum, exec_cksum;
   // orig exec
@@ -1960,9 +1962,10 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
       //update stat
       if (!(afl->stage_cur % afl->stats_update_freq) ||
         afl->stage_cur + 1 == afl->stage_max) {
-
+        
+        update_c_bytes_len(afl, mode);
         show_stats(afl);
-
+   
       }
       // byte-level mutate
       byte_level_mutate(afl, buf, i, j); 
@@ -2106,8 +2109,10 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   
 
   if (afl->queue_cur->taint[mode] == NULL && !afl->queue_cur->taint_failed[mode]) {
+    
+    afl->tainted_seed[mode]++;
     // taint inference
-    if (taint(afl, buf, orig_buf, len)) {
+    if (taint(afl, buf, orig_buf, len, mode)) {
       
       if (afl->queue_cur->taint_cur[mode]) {
         

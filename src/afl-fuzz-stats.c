@@ -1196,7 +1196,7 @@ void show_stats(afl_state_t *afl) {
   }
 
   /* taint inference */
-  if (afl->shm.memlog_mode == 1) {
+  if (afl->shm.memlog_mode || afl->shm.cmplog_mode) {
 
     sprintf(tmp, "%s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]),
@@ -1207,113 +1207,31 @@ void show_stats(afl_state_t *afl) {
 
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");      
    
-    if (afl->shm.cmplog_mode == 1 && afl->taint_mode == TAINT_CMP) {
+    if (afl->shm.cmplog_mode && afl->taint_mode == TAINT_CMP) {
 
       sprintf(tmp, "cmplog");
 
     }
-    else {
+    else if (afl->shm.memlog_mode && afl->taint_mode == TAINT_MEM){
 
       sprintf(tmp, "memlog");
 
     }
-    SAYF(bV bSTOP "  taint mode : "  cRST "%-36s " bSTG bV"\n", tmp); 
+    SAYF(bV bSTOP " taint mode  : "  cRST "%-36s " bSTG bV"\n", tmp); 
+    
+    sprintf(tmp, "%d/%d/%d", afl->tainted_seed[TAINT_CMP], afl->tainted_seed[TAINT_MEM], afl->queued_items);
+    SAYF(bV bSTOP " taint seeds : "  cRST "%-36s " bSTG bV"\n", tmp);
 
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->unstable_len);
-    SAYF(bV bSTOP "     tainted : "  cRST "%-36s " bSTG bV"\n", tmp); 
+    SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp); 
 
-    for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
+    /*for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
       
       sprintf(tmp, "%d", afl->ht_tainted[i]);
       SAYF(bV bSTOP " ht%u tainted : "  cRST "%-36s " bSTG bV"\n", i, tmp); 
 
-    }
+    }*/
 
-    /*SAYF(bVR bH cCYA bSTOP " memlog " bSTG bH10 bH10 bH10 bH10 bH2 bH bVL"\n");
-    sprintf(tmp, "%d", afl->log_id);
-    SAYF(bV bSTOP "          id : "  cRST "%-36s " bSTG bV"\n", tmp);        
-  
-    switch(afl->log_type) {
-      
-      case HT_HOOK1: {
-
-        sprintf(tmp, "hook1(ptr, size)");
-        break;
-      
-      }
-      case HT_HOOK2: {
-        
-        sprintf(tmp, "hook2(dst, src, size)");
-        break;
-      
-      }
-      case HT_HOOK3: {
-        
-        sprintf(tmp, "hook3(size)");
-        break;
-      
-      }
-      case HT_HOOK4: {
-        
-        sprintf(tmp, "hook4(ptr)");
-        break;
-      
-      }
-      case HT_GEP_HOOK: {
-        
-        sprintf(tmp, "GEP");
-        break;
-      
-      }
-      default:
-        break;
-
-    }
-    //sprintf(tmp, "%d", afl->log_type);                        
-    SAYF(bV bSTOP "        type : "  cRST "%-36s " bSTG bV"\n", tmp);          
-    //sprintf(tmp, "%d", afl->log_op_type);                        
-    
-    switch(afl->log_op_type) {
-      case MEM_DST: {
-
-        sprintf(tmp, "DST");
-        break;
-      
-      }
-      case MEM_SRC: {
-      
-        sprintf(tmp, "SRC");
-        break;
-      
-      }
-      case MEM_SIZE: {
-        
-        sprintf(tmp, "SIZE");
-        break;
-      
-      }
-      case MEM_IDX: {
-        
-        sprintf(tmp, "IDX");
-        break;
-      
-      }
-      case MEM_VA_SRC: {
-        
-        sprintf(tmp, "GEP SRC");
-        break;
-      
-      }
-      default:
-        break;
-    
-    }
-    
-    SAYF(bV bSTOP "     op type : "  cRST "%-36s " bSTG bV "\n", tmp);                  
-    
-    sprintf(tmp, "%llu", afl->log_val);
-    SAYF(bV bSTOP "         val : "  cRST "%-36s " bSTG bV, tmp);  */ 
-          
   }
 
   /* Last line */
