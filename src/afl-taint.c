@@ -72,11 +72,11 @@ static void usage(u8 *argv0) {
 
       "Required parameters:\n"
       "  -i dir        - input directory with test cases\n"
-      "  -o dir        - output directory for fuzzer findings\n\n"
-      "  -c program    - enable CmpLog by specifying a binary compiled for "
-      "  -m megs       - memory limit for child process (%u MB, 0 = no limit "
-      "  -t msec       - timeout for each run (auto-scaled, default %u ms). "
-      "  -y program    - enable Memlog by specifying a binary compiled for",
+      "  -o dir        - output directory for fuzzer findings\n"
+      "  -c program    - enable CmpLog by specifying a binary compiled for\n"
+      "  -m megs       - memory limit for child process (%u MB, 0 = no limit\n"
+      "  -t msec       - timeout for each run (auto-scaled, default %u ms).\n"
+      "  -y program    - enable Memlog by specifying a binary compiled for\n",
       argv0, EXEC_TIMEOUT, MEM_LIMIT);
       
 
@@ -260,6 +260,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (optind == argc || !afl->in_dir || !afl->out_dir || show_help) {
 
     usage(argv[0]);
+    return 1;
 
   }
 
