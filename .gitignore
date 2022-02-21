@@ -34,6 +34,7 @@ afl-cs-proxy
 afl-qemu-trace
 afl-showmap
 afl-tmin
+afl-taint
 afl-analyze.8
 afl-as.8
 afl-clang-fast++.8
