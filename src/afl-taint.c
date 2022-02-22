@@ -767,9 +767,10 @@ int main(int argc, char **argv_orig, char **envp) {
   
   // taint inference to each queue entries
   u8 *in_buf, *out_buf;
-  u32 len;
-  
-  for (u32 i = 0; i < afl->queued_items; i++) {
+  u32 len, items;
+  items = afl->queued_items;
+
+  for (u32 i = 0; i < items; i++) {
     
     afl->queue_cur = afl->queue_buf[i];
     in_buf = queue_testcase_get(afl, afl->queue_cur);
@@ -809,7 +810,7 @@ int main(int argc, char **argv_orig, char **envp) {
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
   
-  SAYF("taint %u queue entries, totally %u entries tainted\n", afl->queued_items, 
+  SAYF("taint %u queue entries, totally %u entries tainted\n", items, 
     MAX((u32)(afl->tainted_seed[TAINT_CMP]), (u32)(afl->tainted_seed[TAINT_MEM])));
 
   destroy_queue(afl);

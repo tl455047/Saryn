@@ -1659,7 +1659,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
       
-      if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
+      //if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
 
     }
 
@@ -2429,7 +2429,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
     if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
       
-      if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
+      //if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
 
     }
 
@@ -2925,7 +2925,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // take input discarded by colorization into account
   // perform input-to-state on these offsets 
   // calulate K, K means the number of unique paths 
-  u64 *test_cksum;
+  /*u64 *test_cksum;
   u32 taint_len = 0, untaint_len = 0, is_exist = 0;
   u64 cksum = 0;
   
@@ -3127,7 +3127,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     
     }
 
-  }
+  }*/
 
   r = 0;
 
