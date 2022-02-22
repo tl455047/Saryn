@@ -2257,10 +2257,10 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
   
   (*taint_mode.ops.check_unstable)(afl);
-
+ 
   // taint
   for(u32 i = 0; i < len; i++) {
-    
+
     afl->stage_cur_byte = i;     
     // for each mutator
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
@@ -2332,7 +2332,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     }
 
   }
- 
+
   return 0;
 
 }
@@ -2416,61 +2416,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   }
   memset(afl->tmp_tainted, 0, sizeof(struct taint_info *) * map_w * map_h);
   
-  struct tainted *taints = NULL, *t;
-  colorization(afl, buf, len, &taints);
-  t = taints;
-  while(t != NULL) {
-    fprintf(stderr, "pos: %u len: %u ", t->pos, t->len);
-    afl->unstable_len += t->len;
-    t = t->next;
-  }fprintf(stderr, "\n");
-
-
-  // Reset bitmap before each execution.
-  memset(taint_mode.map, 0, taint_mode.map_size);
-  if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
   
-  memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
-
-  memset(taint_mode.map, 0, taint_mode.map_size);
-  if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, buf, len))) {
-
-    return 1;
-        // reset buffer
-        // buf[i] = orig_buf[i];
-        // continue;
-  }
-  
-  t = taints;
-  while (t->next) {
-
-    t = t->next;
-
-  }
-
-  for(u32 i = 0; i < len; i++) {
-    if (!t || i < t->pos) {
-
-        continue;
-
-    } else {
-
-
-      if (i == t->pos + t->len - 1) { t = t->prev; }
-
-    }
-    
-    update_c_bytes_len(afl, mode);
-    // infer result
-    (*taint_mode.ops.inference)(afl, i, 0);
-  
-  }
-  
-  memcpy(buf, orig_buf, len);
-  // write c_byte to file
-  write_to_taint(afl, mode);
-  return 0;
-
   if (afl->queue_cur->taint[mode] == NULL && !afl->queue_cur->taint_failed[mode]) {
     
     afl->tainted_seed[mode]++;
@@ -2548,12 +2494,6 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   update_state(afl, mode);
 
   taint_debug(afl, mode);
-  
-  t = afl->queue_cur->c_bytes[mode];
-  while(t != NULL) {
-    fprintf(stderr, "pos: %u len: %u ", t->pos, t->len);
-    t = t->next;
-  }fprintf(stderr, "\n");
 
   return 0;
 
