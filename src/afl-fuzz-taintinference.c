@@ -1940,7 +1940,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
 u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
-  u64 cksum, exec_cksum;
+  // u64 cksum, exec_cksum;
   // orig exec
  
   // Reset bitmap before each execution.
@@ -1950,7 +1950,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
 
   // orig cksum
-  cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
+  // cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
 
   // check unstable
   memset(taint_mode.map, 0, taint_mode.map_size);
@@ -2018,14 +2018,13 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       }
       
       // directly use cmp map or mem map afl bitmap
-      exec_cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
+      // exec_cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
       
-      if (exec_cksum != cksum) goto taint_next_iterator;
+      //if (exec_cksum != cksum) goto taint_next_iterator;
 
       // infer result
-      (*taint_mode.ops.inference)(afl, i, cksum);
+      (*taint_mode.ops.inference)(afl, i, 0);
       
-    taint_next_iterator:
       // reset buffer
       buf[i] = orig_buf[i];
 
