@@ -2118,7 +2118,6 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   
   if (afl->queue_cur->taint[mode] == NULL && !afl->queue_cur->taint_failed[mode]) {
     
-    afl->tainted_seed[mode]++;
     // taint inference
     if (taint(afl, buf, orig_buf, len, mode)) {
       

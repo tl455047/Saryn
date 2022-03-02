@@ -1657,12 +1657,6 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   for (i = 0; i < loggeds; ++i) {
 
-    if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
-      
-      //if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
-
-    }
-
     struct cmp_operands *o = &afl->shm.cmp_map->log[key][i];
 
     // loop detection code
@@ -1904,17 +1898,13 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
-    
-    if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
+  if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
 
-      afl->its_pass_stats[key].faileds++;
+    afl->its_pass_stats[key].faileds++;
 
-    }
-
-    if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
-  
   }
+
+  if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
 
   return 0;
 
@@ -2427,12 +2417,6 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   for (i = 0; i < loggeds; ++i) {
 
-    if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
-      
-      //if (afl->orig_cmp_map->cksum[key][i] != afl->shm.cmp_map->cksum[key][i]) continue;
-
-    }
-
     struct cmpfn_operands *o =
         &((struct cmpfn_operands *)afl->shm.cmp_map->log[key])[i];
 
@@ -2595,60 +2579,18 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
   }
 
-  if (strncmp(afl->stage_name, "input-to-state plus", 20) != 0) {
-    
-    if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
+  if (!found_one && afl->its_pass_stats[key].faileds < 0xff) {
 
-      afl->its_pass_stats[key].faileds++;
+    afl->its_pass_stats[key].faileds++;
 
-    }
-
-    if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
-    
   }
 
-  return 0; 
+  if (afl->its_pass_stats[key].total < 0xff) { afl->its_pass_stats[key].total++; }
+
+  return 0;
 
 }
 
-static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
-
-  struct tainted *new_taint;
-  u32 end;
- 
-  if (taint == NULL) {
-    
-    new_taint = ck_alloc_nozero(sizeof(struct tainted));  
-    new_taint->pos = pos;
-    new_taint->len = len;
-    new_taint->prev = NULL;
-    new_taint->next = NULL;
-    return new_taint;
-
-  }
-
-  end = taint->pos + taint->len - 1;
-
-  if (end + 1 == pos) {
-    
-    taint->len += 1;
-  
-  }
-  else if (pos > end) {
-    
-    new_taint = ck_alloc_nozero(sizeof(struct tainted));  
-    new_taint->pos = pos;
-    new_taint->len = len;
-    new_taint->prev = NULL;
-    new_taint->next = taint;
-    taint->prev = new_taint;
-    return new_taint;
-
-  }
-
-  return taint;
-
-}
 ///// Input to State stage
 
 // afl->queue_cur->exec_cksum
@@ -2726,7 +2668,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   u64 start_time = get_cur_time();
   u32 cmp_locations = 0;
 #endif
-  
+
   // Generate the cmplog data
 
   // manually clear the full cmp_map
@@ -2775,8 +2717,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 #endif
 
   // Start insertion loop
-  u32 cksum_cur = 0;
-  struct tainted **extra_taint = NULL;
 
   u64 orig_hit_cnt, new_hit_cnt;
   u64 orig_execs = afl->fsrv.total_execs;
@@ -2864,271 +2804,6 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-
-#ifdef CMPLOG_COMBINE
-  if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
-
-    // copy the current virgin bits so we can recover the information
-    u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
-    memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
-    // reset virgin bits to the backup previous to redqueen
-    memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
-
-    u8 status = 0;
-    its_fuzz(afl, cbuf, len, &status);
-
-  // now combine with the saved virgin bits
-  #ifdef WORD_SIZE_64
-    u64 *v = (u64 *)afl->virgin_bits;
-    u64 *s = (u64 *)virgin_save;
-    u32  i;
-    for (i = 0; i < (afl->shm.map_size >> 3); i++) {
-
-      v[i] &= s[i];
-
-    }
-
-  #else
-    u32 *v = (u32 *)afl->virgin_bits;
-    u32 *s = (u32 *)virgin_save;
-    u32  i;
-    for (i = 0; i < (afl->shm.map_size >> 2); i++) {
-
-      v[i] &= s[i];
-
-    }
-
-  #endif
-
-  #ifdef _DEBUG
-    dump("COMB", cbuf, len);
-    if (status == 1) {
-
-      fprintf(stderr, "NEW CMPLOG_COMBINED\n");
-
-    } else {
-
-      fprintf(stderr, "NO new combined\n");
-
-    }
-
-  #endif
-
-  }
-
-#endif
-
-  new_hit_cnt = afl->queued_items + afl->saved_crashes;
-  afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
-  
-  // take input discarded by colorization into account
-  // perform input-to-state on these offsets 
-  // calulate K, K means the number of unique paths 
-  /*u64 *test_cksum;
-  u32 taint_len = 0, untaint_len = 0, is_exist = 0;
-  u64 cksum = 0;
-  
-  memcpy(buf, orig_buf, len);
-  if (afl->queue_cur->extra_taint == NULL) {
-
-    // calculate how many bytes colorization discards 
-    t = taint;
-    while(t != NULL) {
-
-      taint_len += t->len;
-      t = t->next;
-    
-    }
-    untaint_len = len - taint_len;
-
-    test_cksum = ck_alloc(sizeof(u64) * untaint_len);
-    extra_taint = ck_alloc(sizeof(struct tainted *) * untaint_len);
-    memset(test_cksum, 0, sizeof(u64) * untaint_len);
-    memset(extra_taint, 0, sizeof(struct tainted *) * untaint_len);
-    
-    t = taint;
-    while (t->next != NULL) {
-      
-      t = t->next;
-
-    }
-
-    // record all bytes which causes same path
-    for(u32 i = 0; i < len; i++) {
-      
-      // skip taint part
-      if (!t || i < t->pos) {
-
-
-      } else {
-        
-        if (i == t->pos + t->len - 1) { t = t->prev; }
-        continue;
-
-      }
-      
-      // byte level mutate
-      type_replace(afl, buf + i, 1);
-      // exec, and get cksum
-      if (unlikely(get_exec_checksum(afl, buf, len, &cksum))) {
-        // restore buf
-        *(buf + i) = *(orig_buf + i);
-        continue;
-      }
-      // store unique cksum
-      is_exist = 0;
-      for(u32 j = 0; j < cksum_cur; j++) {
-
-        if (test_cksum[j] == cksum) {
-
-          extra_taint[j] = add_tainted(extra_taint[j], i, 1);
-          is_exist = 1;
-          break;
-
-        }
-
-      }
-
-      if (!is_exist) {
-        
-        extra_taint[cksum_cur] = add_tainted(extra_taint[cksum_cur], i, 1);
-        test_cksum[cksum_cur++] = cksum;
-      
-      }
-      // restore buf
-      *(buf + i) = *(orig_buf + i);
-      
-    }
-
-    free(test_cksum);
-
-    afl->queue_cur->extra_taint = extra_taint;
-    afl->queue_cur->cksum_cur = cksum_cur;
-
-  }
-  else {
-
-    extra_taint = afl->queue_cur->extra_taint;
-    cksum_cur = afl->queue_cur->cksum_cur;
-
-  }
-  
-  // distinguish contribution from original its and its plus
-  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
-  orig_execs = afl->fsrv.total_execs;
-  
-  afl->stage_name = "input-to-state plus";
-  afl->stage_short = "itsp";
-  afl->stage_max = 0;
-  afl->stage_cur = 0;
-
-#ifdef CMPLOG_COMBINE
-  memcpy(cbuf, orig_buf, len);
-  memcpy(virgin_backup, afl->virgin_bits, afl->shm.map_size);
-#else
-  u8 *cbuf = NULL;
-#endif
-
-  for(u32 i = 0; i < cksum_cur; i++) {
-    // we only need to exec cmplog_stuff n path times
-    // we can mutate all offsets in one time, since all offsets lead to same path 
-    // mutate all offsets
-    t = extra_taint[i];  
-    while(t != NULL) {
-
-      type_replace(afl, buf + t->pos, t->len);
-      t = t->next;
-    
-    }
-
-    // exec
-    memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
-    if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) { return 1; }
-
-    u32 k, loggeds;
-    for (k = 0; k < CMP_MAP_W; ++k) {
-
-      if (afl->its_pass_stats[k].faileds >= CMPLOG_FAIL_MAX ||
-          afl->its_pass_stats[k].total >= CMPLOG_FAIL_MAX) {
-
-  #ifdef _DEBUG
-        fprintf(stderr, "DISABLED %u\n", k);
-  #endif
-
-        afl->shm.cmp_map->headers[k].hits = 0;  // ignore this cmp
-
-      }
-
-      // discard different part
-      loggeds = MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)(afl->orig_cmp_map->headers[k].hits));
-      if (!loggeds) { 
-        afl->shm.cmp_map->headers[k].hits = 0;
-        continue; 
-      }
-
-      if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
-
-        // fprintf(stderr, "INS %u\n", k);
-        afl->stage_max +=
-            MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
-
-      } else {
-
-        // fprintf(stderr, "RTN %u\n", k);
-        afl->stage_max +=
-            MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_RTN_H);
-
-      }
-
-    }
-
-    // set offset
-    t = extra_taint[i];
-    for (k = 0; k < CMP_MAP_W; ++k) {
-
-      if (!afl->shm.cmp_map->headers[k].hits) { continue; }
-
-  #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
-      ++cmp_locations;
-  #endif
-
-      if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
-
-        if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, t))) {
-
-          goto exit_its;
-
-        }
-
-      } else if ((lvl & LVL1)
-
-                //#ifdef CMPLOG_SOLVE_TRANSFORM
-                || ((lvl & LVL3) && afl->cmplog_enable_transform)
-                //#endif
-      ) {
-
-        if (unlikely(rtn_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, t))) {
-
-          goto exit_its;
-
-        }
-
-      }
-
-    }
-
-    // restore buf
-    t = extra_taint[i];  
-    while(t != NULL) {
-
-      memcpy(buf + t->pos, orig_buf + t->pos, t->len);
-      t = t->next;
-    
-    }
-
-  }*/
-
   r = 0;
 
 exit_its:
@@ -3152,24 +2827,6 @@ exit_its:
     }
 
     afl->queue_cur->color_taint = NULL;
-
-    if (afl->queue_cur->extra_taint != NULL) {
-      
-      for (u32 i = 0; i < cksum_cur; i++) {
-        
-        while(extra_taint[i]) {
-
-          t = extra_taint[i]->next;
-          ck_free(extra_taint[i]);
-          extra_taint[i] = t;
-
-        }
-
-      }
-
-      afl->queue_cur->extra_taint = NULL;
-    
-    }
 
   } else {
 
@@ -3241,8 +2898,8 @@ exit_its:
 #endif
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
-  afl->stage_finds[STAGE_ITS_PLUS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_ITS_PLUS] += afl->fsrv.total_execs - orig_execs;
+  afl->stage_finds[STAGE_ITS] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_ITS] += afl->fsrv.total_execs - orig_execs;
 
 #if defined(_DEBUG) || defined(CMPLOG_INTROSPECTION)
   FILE *f = stderr;

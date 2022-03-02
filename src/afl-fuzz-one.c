@@ -591,7 +591,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
   }
-  
+  afl->tainted_seed[TAINT_CMP]++;
   // memlog mode
   if (unlikely(afl->shm.memlog_mode)) {
     memcpy(out_buf, in_buf, len);
@@ -602,7 +602,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     }
     
   }
-
+  afl->tainted_seed[TAINT_MEM]++;
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs

@@ -769,7 +769,7 @@ int main(int argc, char **argv_orig, char **envp) {
   u8 *in_buf, *out_buf;
   u32 len, items;
   items = afl->queued_items;
-
+  
   for (u32 i = 0; i < items; i++) {
     
     afl->queue_cur = afl->queue_buf[i];
@@ -790,7 +790,7 @@ int main(int argc, char **argv_orig, char **envp) {
         
         }
     }
-    
+    afl->tainted_seed[TAINT_CMP]++;
     // memlog mode
     if (unlikely(afl->shm.memlog_mode)) {
         memcpy(out_buf, in_buf, len);
@@ -801,17 +801,18 @@ int main(int argc, char **argv_orig, char **envp) {
         }
         
     }
-    
+    afl->tainted_seed[TAINT_MEM]++;
+
   taint_inference_next_iter:    
     if (afl->stop_soon) break;
-  
+
   }
 
   SAYF(CURSOR_SHOW cLRD "\n\n+++ Testing aborted %s +++\n" cRST,
        afl->stop_soon == 2 ? "programmatically" : "by user");
   
   SAYF("taint %u queue entries, totally %u entries tainted\n", items, 
-    MAX((u32)(afl->tainted_seed[TAINT_CMP]), (u32)(afl->tainted_seed[TAINT_MEM])));
+    MIN((u32)(afl->tainted_seed[TAINT_CMP]), (u32)(afl->tainted_seed[TAINT_MEM])));
 
   destroy_queue(afl);
   

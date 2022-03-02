@@ -231,8 +231,6 @@ struct queue_entry {
 
   u8 *             cmplog_colorinput;   /* the result buf of colorization   */
   struct tainted  *color_taint;         /* Taint information from CmpLog    */
-  struct tainted **extra_taint;         /* extra Taint information          */
-  u32              cksum_cur;           /* unique paths from extra taint    */
                                       
                                         /* Taint Inference                  */ 
                                         /* critical bytes                   */               
@@ -288,7 +286,6 @@ enum {
   /* 18 */ STAGE_CUSTOM_MUTATOR,
   /* 19 */ STAGE_COLORIZATION,
   /* 20 */ STAGE_ITS,
-  /* 21 */ STAGE_ITS_PLUS,
   /* 21 */ STAGE_TAINT_HAVOC,
   /* 22 */ STAGE_TAINT_LS,
   STAGE_NUM_MAX
