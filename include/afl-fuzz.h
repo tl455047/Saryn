@@ -710,7 +710,11 @@ typedef struct afl_state {
 
   char *           memlog_binary;
   afl_forkserver_t memlog_fsrv; 
-
+  
+  /* Symbolic */
+  char *           symbolic_path;
+  u8               symbolic_mode;       
+  
   /* Custom mutators */
   struct custom_mutator *mutator;
 
@@ -1220,6 +1224,9 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
 
 void destroy_taint(afl_state_t *afl, struct queue_entry *q);
+
+/* Symbolic */
+u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);

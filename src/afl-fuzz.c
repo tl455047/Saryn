@@ -445,11 +445,18 @@ int main(int argc, char **argv_orig, char **envp) {
 
   while ((opt = getopt(
               argc, argv,
-              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:y:Z")) >
+              "+Ab:B:c:CdDe:E:hi:I:f:F:l:L:m:M:nNOo:p:RQs:S:t:T:UV:Wx:y:Zz:")) >
          0) {
 
     switch (opt) {
+      
+      case 'z': {
+        
+        afl->symbolic_mode = 1;
+        afl->symbolic_path = ck_strdup(optarg);
+        break;
 
+      } 
       // enable memlog mode
       case 'y': {
        

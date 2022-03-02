@@ -782,26 +782,27 @@ int main(int argc, char **argv_orig, char **envp) {
     // cmplog mode
     // if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
     if (unlikely(afl->shm.cmplog_mode)) {  
-        memcpy(out_buf, in_buf, len);
-        if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP)) {
+      memcpy(out_buf, in_buf, len);
+      if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP)) {
 
-          goto taint_inference_next_iter;
+        goto taint_inference_next_iter;
 
         
-        }
+      }
+      afl->tainted_seed[TAINT_CMP]++;
     }
-    afl->tainted_seed[TAINT_CMP]++;
+    
     // memlog mode
     if (unlikely(afl->shm.memlog_mode)) {
-        memcpy(out_buf, in_buf, len);
-        if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEM)) {
+      memcpy(out_buf, in_buf, len);
+      if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEM)) {
 
-          goto taint_inference_next_iter;
+        goto taint_inference_next_iter;
 
-        }
-        
+      }
+      afl->tainted_seed[TAINT_MEM]++;
     }
-    afl->tainted_seed[TAINT_MEM]++;
+    
 
   taint_inference_next_iter:    
     if (afl->stop_soon) break;
