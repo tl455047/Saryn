@@ -1,6 +1,6 @@
 #include "afl-fuzz.h"
 /**
- * We should symbolc_path is exist before bump into this function.
+ * We should check symbolc_path is exist before bump into this function.
  * 
  *
  * Should be called only when fuzzer stucks.
@@ -72,11 +72,6 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // check sync_id since we want to use this mechanism to sync our 
   // testcases from symbolic
   // this should done when checking the symbolic dir
-  if (!afl->sync_id) {
-
-    PFATAL("For synchronizing with symbolic engine, we need sync_id");
-
-  }
 
   // taint inference
   memcpy(buf, orig_buf, len);

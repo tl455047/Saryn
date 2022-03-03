@@ -1248,6 +1248,53 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("No -M/-S set, autoconfiguring for \"-S %s\"", afl->sync_id);
 
   }
+  
+   // check for symbolic mode
+  if (afl->symbolic_mode) {
+    // check cmplog mode
+    if (!afl->shm.cmplog_mode) {
+
+      FATAL("To support symbolic we need cmplog");
+
+    }
+    // check if is main node 
+    if (!afl->is_main_node) {
+
+      FATAL("To support symbolic we need to be main node");
+      
+    }
+    // check symbolc_path
+    if (opendir(afl->symbolic_path) == NULL && errno == ENOENT) {
+
+      FATAL("Symbolic path does not exist");
+
+    }
+    // check s2e script
+    u8 *fn = alloc_printf("%s/launch-s2e.sh", afl->symbolic_path);
+    if (access(fn, F_OK) < 0) {
+
+      FATAL("Seems that s2e script does not exist");
+
+    }
+    ck_free(fn);
+
+    fn = alloc_printf("%s/s2e-config.lua", afl->symbolic_path);
+    if (access(fn, F_OK) < 0) {
+
+      FATAL("Seems that s2e script does not exist");
+
+    }
+    ck_free(fn);
+
+    fn = alloc_printf("%s/bootstrap.sh", afl->symbolic_path);
+    if (access(fn, F_OK) < 0) {
+
+      FATAL("Seems that s2e script does not exist");
+
+    }
+    ck_free(fn);
+
+  }
 
   if (afl->sync_id) {
 

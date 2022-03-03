@@ -582,8 +582,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   // Maybe we should not apply this analysis for every seed.
-  // cmplog mode, since we need cmplog support
-  if (afl->symbolic_mode && afl->shm.cmplog_mode) {
+  if (afl->symbolic_mode) {
     // skip fuzz
     invoke_symbolic(afl, out_buf, in_buf, len);
     
