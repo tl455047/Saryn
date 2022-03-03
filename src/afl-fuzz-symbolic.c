@@ -40,7 +40,9 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   
   // cmplog mode, since we need cmplog support
   if (unlikely(afl->shm.cmplog_mode)) {  
+    
     memcpy(buf, orig_buf, len);
+    
     if (taint_inference_stage(afl, buf, orig_buf, len, TAINT_CMP)) {
 
       return 1;
@@ -50,8 +52,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     afl->tainted_seed[TAINT_CMP]++;
   
     fprintf(stderr, "write current seed to %s/poc\n", afl->symbolic_path);
-    // write current seed and corresponding critical bytes file to 
-    // S2E project dir
+    // write current seed to S2E project dir
     fn = alloc_printf("%s/poc", afl->symbolic_path);
     f = create_ffile(fn);
     
@@ -59,7 +60,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
     fclose(f);
     ck_free(fn);
-    
+    // write critical bytes file to s2e project dir
     fprintf(stderr, "write critical bytes file to %s/poc.symranges\n", afl->symbolic_path);
     fn = alloc_printf("%s/poc.symranges", afl->symbolic_path);
     f = create_ffile(fn);
@@ -84,31 +85,34 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
     }
 
-    s2e_path = alloc_printf("%s/launch-s2e.sh", afl->symbolic_path);
-    s2e_out_dir = alloc_printf("%s/s2e-out-%d", afl->sync_dir, afl->queue_cur->id);
-    
     // create output dir
-    /*if (mkdir(s2e_out_dir, 0700)) { 
+    // we follow the nameing convention in S2E
+    u32 i;
+    for(i = 0;; i++) {
       
-      if (errno != EEXIST) {
+      fn = alloc_printf("%s/s2e-out-%d", afl->sync_dir, i);
+      
+      if (opendir(fn)) {
 
-        PFATAL("Unable to create '%s'", s2e_out_dir);
+        ck_free(fn);
 
       }
+      else if (errno == ENOENT) {
 
-      if (rmdir(s2e_out_dir) < 0) { 
-
-        PFATAL("Delete directory failed");
+        s2e_out_dir = fn;    
+        break;
       
       }
+      else {
 
-      if (mkdir(s2e_out_dir, 0700)) {
-
-        PFATAL("Unable to create '%s'", s2e_out_dir);
+        PFATAL("Open directory failed");
 
       }
 
-    }*/
+    }
+    
+    // S2E launch script
+    s2e_path = alloc_printf("%s/launch-s2e.sh", afl->symbolic_path);
     
     // launch S2E
     pid = fork();
@@ -156,8 +160,10 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
       }
 
+      ck_free(fn);
+      ck_free(new_fn);
       // create directory .synced 
-      fn = alloc_printf("%s/.synced/", afl->out_dir);
+      /*fn = alloc_printf("%s/.synced/", afl->out_dir);
 
       if (mkdir(fn, 0700) && (errno != EEXIST)) {
 
@@ -166,11 +172,8 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
       }
 
       // sync 
-      sync_fuzzers(afl);
+      sync_fuzzers(afl);*/
       
-      ck_free(fn);
-      ck_free(new_fn);
-
     }
     else {
       
