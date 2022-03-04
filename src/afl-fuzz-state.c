@@ -625,3 +625,37 @@ void afl_states_request_skip(void) {
 
 }
 
+void afl_state_symbolic_terminate(void) {
+  
+  LIST_FOREACH(&afl_states, afl_state_t, {
+    
+    // rename s2e-out-*/testcase- to queue to match the
+    // format of afl sync dir
+    
+    el->ready_for_symbolic = 1; 
+    el->ready_for_sync = 1;
+
+    u8 *fn = alloc_printf("%s/testcase-", el->s2e_out_dir);
+    u8 *new_fn = alloc_printf("%s/queue", el->s2e_out_dir);
+    
+    if (opendir(fn)) {
+      
+      if (rename(fn, new_fn) < 0) {
+
+        PFATAL("Rename testcase- failed");
+
+      }
+
+    } 
+    else if (errno != ENOENT) {
+      
+      PFATAL("Open testcase- failed");
+
+    }
+    
+    ck_free(fn);
+    ck_free(new_fn);
+
+  });
+  
+}

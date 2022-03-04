@@ -2954,3 +2954,31 @@ void save_cmdline(afl_state_t *afl, u32 argc, char **argv) {
 
 }
 
+/**
+ * SIGUSR2 handler, this is used to tell fuzzer that symbolic 
+ * execution has completed, we can call sync_fuzzers to synchronize
+ * the testcases from symbolic engine.
+ * 
+ *  
+ */
+static void handle_symbolic_terminate(int sig) {
+
+  (void)sig;
+  afl_state_symbolic_terminate();
+  
+}
+
+void setup_symbolic_signal_handlers() {
+
+  struct sigaction sa;
+
+  sa.sa_sigaction = NULL;
+  sa.sa_handler = handle_symbolic_terminate;
+  sa.sa_flags = SA_RESTART;
+  
+  sigemptyset(&sa.sa_mask);
+
+  /* SIGCHLD: symbolic sync */
+  sigaction(SIGCHLD, &sa, NULL);
+
+}

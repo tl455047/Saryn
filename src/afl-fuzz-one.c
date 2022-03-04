@@ -581,9 +581,9 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  // Maybe we should not apply this analysis for every seed.
-  if (afl->symbolic_mode) {
-    // skip fuzz
+  // we should not apply this analysis for every seed.
+  if (afl->symbolic_mode && afl->ready_for_symbolic) {
+    
     invoke_symbolic(afl, out_buf, in_buf, len);
     
   }

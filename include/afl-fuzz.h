@@ -714,7 +714,9 @@ typedef struct afl_state {
   /* Symbolic */
   char *           symbolic_path;
   u8               symbolic_mode;       
-  
+  u8               ready_for_symbolic;
+  u8               ready_for_sync;
+  u8 *             s2e_out_dir;
   /* Custom mutators */
   struct custom_mutator *mutator;
 
@@ -1227,6 +1229,10 @@ void destroy_taint(afl_state_t *afl, struct queue_entry *q);
 
 /* Symbolic */
 u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len);
+
+void setup_symbolic_signal_handlers();
+
+void afl_state_symbolic_terminate(void);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
