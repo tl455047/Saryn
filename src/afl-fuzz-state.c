@@ -646,6 +646,8 @@ void afl_state_symbolic_terminate(void) {
 
       }
 
+      closedir(fn);
+      
     } 
     else if (errno != ENOENT) {
       

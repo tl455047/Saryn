@@ -95,7 +95,8 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     fn = alloc_printf("%s/s2e-out-%d", afl->sync_dir, i);
     
     if (opendir(fn)) {
-
+      
+      closedir(fn);
       ck_free(fn);
 
     }
