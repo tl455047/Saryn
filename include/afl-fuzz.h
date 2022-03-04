@@ -288,6 +288,7 @@ enum {
   /* 20 */ STAGE_ITS,
   /* 21 */ STAGE_TAINT_HAVOC,
   /* 22 */ STAGE_TAINT_LS,
+  /* 23 */ STAGE_SYMBOLIC,
   STAGE_NUM_MAX
 
 };
