@@ -1286,11 +1286,6 @@ int main(int argc, char **argv_orig, char **envp) {
 
     setup_symbolic_signal_handlers();
 
-    // set AFL_PID 
-    fn = alloc_printf("%d", getpid());
-    setenv("AFL_PID", fn, 1);
-    ck_free(fn);
-
   }
 
   afl->fsrv.kill_signal =
