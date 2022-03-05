@@ -1247,11 +1247,16 @@ int main(int argc, char **argv_orig, char **envp) {
 
     }
     // check symbolc_path
-    if (opendir(afl->symbolic_path) == NULL && errno == ENOENT) {
+    DIR *d;
+    d = opendir(afl->symbolic_path);
+    
+    if (!d && errno == ENOENT) {
 
       FATAL("Symbolic path does not exist");
 
     }
+    
+    closedir(d);
     // check s2e script
     u8 *fn = alloc_printf("%s/launch-s2e.sh", afl->symbolic_path);
     if (access(fn, F_OK) < 0) {

@@ -59,6 +59,7 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
 u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   
   u8* fn, *s2e_path;
+  DIR *d;
   // u8 *new_fn;
   // s32 status;
   pid_t pid;
@@ -94,9 +95,11 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     
     fn = alloc_printf("%s/s2e-out-%d", afl->sync_dir, i);
     
-    if (opendir(fn)) {
+    d = opendir(fn);
+    
+    if (d) {
       
-      closedir(fn);
+      closedir(d);
       ck_free(fn);
 
     }
@@ -118,7 +121,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
       PFATAL("Open directory failed");
 
     }
-
+    
   }
 
   // S2E launch script
