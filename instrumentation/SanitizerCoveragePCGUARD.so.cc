@@ -1340,6 +1340,33 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   }
 
   if (Options.TracePCGuard) {
+    
+    /* Deliver FunctionGuardArray and index to each cmp instruction
+       in predecessor of current block */
+    
+    for (auto it = pred_begin(&BB); it != pred_end(&BB); it++) {
+      BasicBlock *PredBB = *it;
+      for (auto &I : *PredBB) {
+        CmpInst *selectcmpInst = nullptr;
+        if ((selectcmpInst = dyn_cast<CmpInst>(&I))) {
+          std::vector<Metadata *> MetadataArray;
+          MetadataArray.clear();
+          MDNode *N;
+          if ((N = selectcmpInst->getMetadata("successor.curloc"))) {
+            for (auto it = N->op_begin(); it != N->op_end(); it++) {
+              MetadataArray.push_back(it->get());
+            }
+          }
+         
+          //errs() << "Appending Function Guard Array: " << FunctionGuardArray->getName() << "Idx: " << Idx << "\n";
+          DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, Idx, false), false, 
+            MDString::get(*C, FunctionGuardArray->getName()));
+          MetadataArray.push_back(DIEn);
+          N = MDNode::get(*C, MetadataArray);
+          selectcmpInst->setMetadata("successor.curloc", N);
+        }
+      }
+    }
 
     /* Get CurLoc */
 

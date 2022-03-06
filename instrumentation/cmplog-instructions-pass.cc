@@ -223,7 +223,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 #endif
 
   GlobalVariable *AFLCmplogPtr = M.getNamedGlobal("__afl_cmp_map");
-
+  
   if (!AFLCmplogPtr) {
 
     AFLCmplogPtr = new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
@@ -288,7 +288,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
       unsigned     max_size = 0, cast_size = 0;
       unsigned     attr = 0, vector_cnt = 0, is_fp = 0;
       CmpInst *    cmpInst = dyn_cast<CmpInst>(selectcmpInst);
-
+      
       if (!cmpInst) { continue; }
 
       switch (cmpInst->getPredicate()) {
@@ -525,7 +525,25 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
         }
 
         if (!skip) {
-
+          
+          /* get FunctionGuardArray and index for all successors, 
+            we want to deliver all successors' curLoc to cmplog_hook */
+          size_t Idx;
+          GlobalVariable *FunctionGuardArray;
+          MDNode *N = cmpInst->getMetadata("successor.curloc");
+          if (N) {
+            for (auto it = N->op_begin(); it != N->op_end(); it++) {
+              Metadata *Meta = it->get();
+              DIEnumerator *DIEn;
+              if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+                if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
+                  // CurLoc
+                  errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
+                }
+              }
+            }
+            errs() << "\n";
+          }
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
 
