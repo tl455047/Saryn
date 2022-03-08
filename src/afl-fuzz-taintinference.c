@@ -1631,7 +1631,8 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
 
 void cmp_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
   
-  u32 loggeds;
+  u8 is_covered;
+  u32 loggeds, idx;
 
   for(u32 i = 0; i < CMP_MAP_W; i++) {
 
@@ -1647,6 +1648,19 @@ void cmp_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
     if (loggeds > CMP_MAP_H) 
       loggeds = CMP_MAP_H;
     
+    // skip the instruction which all successor are already covered
+    is_covered = 1;
+    for (u32 j = 0; j < afl->shm.cmp_map->loc[i].num_of_succ; j++) {
+      
+      idx = afl->shm.cmp_map->loc[j].cur_loc[j];
+      
+      if (afl->virgin_bits[idx])
+        is_covered = 0;
+
+    }
+
+    if (is_covered) continue;
+
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
       
       ins_inference(afl, ofs, i, loggeds, cksum);

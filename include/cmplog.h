@@ -73,11 +73,19 @@ struct cmpfn_operands {
 
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
+struct cmp_succ_loc {
+  
+  u32 num_of_succ;
+  u32 cur_loc[4];
+  
+};
+
 struct cmp_map {
 
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
-  
+  struct cmp_succ_loc loc[CMP_MAP_W];
+
 };
 
 /* Execs the child */

@@ -114,6 +114,10 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
 
+  Type *      IntptrTy = Type::getIntNTy(C, M.getDataLayout().getPointerSizeInBits());
+  IRBuilder<> _IRB(C);
+  Type *      Int32PtrTy = PointerType::getUnqual(_IRB.getInt32Ty());
+
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
 #else
@@ -232,6 +236,15 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
   }
 
+  /* Used for storing each cmp instruction successors' CurLoc,
+     since we don't want to break the cmp_hook interface. */
+  
+  ArrayType *ArrayTy = ArrayType::get(Int32Ty, 32);
+  GlobalVariable *AFLLocPtr = new GlobalVariable(M, ArrayTy, false,
+      GlobalValue::ExternalLinkage, 0, "__afl_loc_ptr");
+  
+  
+  
   Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
@@ -528,22 +541,69 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           
           /* get FunctionGuardArray and index for all successors, 
             we want to deliver all successors' curLoc to cmplog_hook */
+          int cnt = 0;
           size_t Idx;
           GlobalVariable *FunctionGuardArray;
           MDNode *N = cmpInst->getMetadata("successor.curloc");
           if (N) {
+            
             for (auto it = N->op_begin(); it != N->op_end(); it++) {
-              Metadata *Meta = it->get();
-              DIEnumerator *DIEn;
-              if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
-                if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
-                  // CurLoc
-                  errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
-                }
-              }
+            
+              cnt++;
+            
             }
-            errs() << "\n";
+            // skip cmp which contains only one successor
+            if (cnt <= 4) {
+              
+              /* Load LOC pointer */
+              Value *LocPtr = IRB.CreateIntToPtr(
+                  IRB.CreateAdd(IRB.CreatePointerCast(AFLLocPtr, Int32PtrTy),
+                                ConstantInt::get(Int32Ty, 0)),
+                  Int32PtrTy);
+
+              /* Store number of successors to LOC pointer[0] */
+              IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), LocPtr);
+              
+              int i = 1;
+              for (auto it = N->op_begin(); it != N->op_end(); it++) {
+                
+                Metadata *Meta = it->get();
+                DIEnumerator *DIEn;
+                
+                if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+                  
+                  if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
+                    
+                    /* Get Guard pointer */
+                    Idx = DIEn->getValue().getSExtValue();
+                    Value *GuardPtr = IRB.CreateIntToPtr(
+                          IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                                        ConstantInt::get(IntptrTy, Idx * 4)),
+                          Int32PtrTy);
+
+                    /* Load CurLoc */
+                    LoadInst *CurLoc = IRB.CreateLoad(Int32Ty, GuardPtr);
+
+                    /* Load LOC pointer */
+                    LocPtr = IRB.CreateIntToPtr(
+                        IRB.CreateAdd(IRB.CreatePointerCast(AFLLocPtr, Int32PtrTy),
+                                      ConstantInt::get(Int32Ty, i * 4)),
+                        Int32PtrTy);
+
+                    /* Store CurLoc */
+                    IRB.CreateStore(CurLoc, LocPtr);
+                    
+                    //errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
+                  }
+
+                }
+                i++;
+              }
+              //errs() << "\n";
+            }
+                 
           }
+
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
 
