@@ -159,6 +159,17 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     // set s2e output directory to sync directory
     setenv("S2E_OUTPUT_DIR", afl->s2e_out_dir, 1);
     
+    // reset cpu affinity
+    cpu_set_t c;
+    CPU_ZERO(&c);
+    CPU_SET(4, &c);
+
+    if (sched_setaffinity(0, sizeof(c), &c)) {
+      
+      PFATAL("setaffinity failed");
+
+    }
+    
     // change directory to s2e directory
     if (chdir(afl->symbolic_path) < 0) {
       
@@ -180,16 +191,6 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
     if (dup(afl->fsrv.dev_null_fd) < 0) {
 
       PFATAL("Dup failed");
-
-    }
-    
-    // reset cpu affinity
-    cpu_set_t c;
-    CPU_ZERO(&c);
-
-    if (sched_setaffinity(0, sizeof(c), &c)) {
-
-      PFATAL("setaffinity failed");
 
     }
 
