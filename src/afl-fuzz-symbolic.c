@@ -157,7 +157,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   if (pid == 0) {
     
     // set s2e output directory to sync directory
-    setenv("s2e_OUTPUT_DIR", afl->s2e_out_dir, 1);
+    setenv("S2E_OUTPUT_DIR", afl->s2e_out_dir, 1);
     
     // change directory to s2e directory
     if (chdir(afl->symbolic_path) < 0) {
