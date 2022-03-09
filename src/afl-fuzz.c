@@ -2421,6 +2421,7 @@ int main(int argc, char **argv_orig, char **envp) {
         afl->stage_cycles[STAGE_SYMBOLIC] += 1;
 
         afl->ready_for_sync = 0;
+        afl->ready_for_symbolic = 1; 
 
       }
       

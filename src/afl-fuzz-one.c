@@ -581,12 +581,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  // we should not apply this analysis for every seed.
-  if (afl->symbolic_mode && afl->ready_for_symbolic) {
-    
-    invoke_symbolic(afl, out_buf, in_buf, len);
-    
-  }
   // cmplog mode
   // if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
   /*if (unlikely(afl->shm.cmplog_mode)) {  
@@ -2814,7 +2808,14 @@ havoc_stage:
     afl->stage_cycles[STAGE_SPLICE] += afl->stage_max;
 
   }
-
+  
+  // we should not apply this analysis for every seed.
+  if (afl->symbolic_mode && afl->ready_for_symbolic) {
+    
+    invoke_symbolic(afl, out_buf, in_buf, len);
+    
+  }
+  
 #ifndef IGNORE_FINDS
 
   /************

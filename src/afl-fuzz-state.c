@@ -636,7 +636,6 @@ void afl_state_symbolic_terminate(void) {
 
     }
     
-    el->ready_for_symbolic = 1; 
     el->ready_for_sync = 1;
 
     u8 *fn = alloc_printf("%s/testcase-", el->s2e_out_dir);
