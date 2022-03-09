@@ -169,7 +169,7 @@ struct tainted_info {
   u32 hits;
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
-  u64 cksum;
+  u64 ret_addr;
   struct tainted *taint;
 
   // for GEP inst.
@@ -633,7 +633,7 @@ typedef struct afl_state {
       log_op_type;
   u64 log_val;
   
-  u32 unstable_len,                     /*       taint inference info       */
+  u32 skip_inst,                     /*       taint inference info       */
       tainted_len,
       tainted_seed[TAINT_MODE],
       ht_tainted[MEMLOG_HOOK_NUM];

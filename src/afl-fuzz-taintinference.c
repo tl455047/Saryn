@@ -8,7 +8,7 @@
 struct taint_operations {
 
   void (*check_unstable)(afl_state_t *afl);
-  void (*inference)(afl_state_t *afl, u32 ofs, u64 cksum);
+  void (*inference)(afl_state_t *afl, u32 ofs);
   u8   (*common_fuzz_staff)(afl_state_t *afl, u8 *out_buf, u32 len);
   
 };
@@ -54,17 +54,6 @@ enum cmplog_type {
     _diff;                                 \
                                            \
   })                                       \
-
-static u8 get_exec_checksum(afl_state_t *afl, u8 *buf, u32 len, u64 *cksum) {
-
-  if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
-
-  *cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-
-  return 0;
-
-}
-
 
 /* replace everything with different values but stay in the same type */
 static void type_replace(afl_state_t *afl, u8 *buf, u32 len) {
@@ -201,7 +190,7 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
 }
 
-static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u64 cksum) {
+static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs) {
   
   struct tainted_info *new_info;
   struct cmp_map *c_map = afl->shm.cmp_map;
@@ -213,7 +202,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->hits = hits;
     new_info->inst_type = c_map->headers[id].type;
     new_info->type = type;
-    new_info->cksum = cksum;
+    new_info->ret_addr = c_map->loc[id].ret_addr;
 
     new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
@@ -231,7 +220,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
 
 }
 
-static void add_mem_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 idx, u64 cksum) {
+static void add_mem_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 idx) {
   
   struct tainted_info *new_info;
   struct mem_map *m_map = afl->shm.mem_map;
@@ -242,8 +231,7 @@ static void add_mem_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->hits = hits;
     new_info->inst_type = m_map->headers[id].type;
     new_info->type = type;
-    new_info->cksum = cksum;
-
+    
     if (m_map->headers[id].type == HT_GEP_HOOK) {
       
       new_info->gep = ck_alloc(sizeof(struct tainted_gep_info));
@@ -776,30 +764,27 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
 u8 exec_path_check(afl_state_t *afl, u32 cur, u8 mode) {
   
-  u64 cksum;
   struct tainted_info *tmp;
 
   tmp = afl->queue_cur->taint[mode][cur];
 
-  cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
-
   if (mode == TAINT_CMP) {
 
-    if (afl->shm.cmp_map->headers[tmp->id].hits < tmp->hits + 1 || 
-        cksum != tmp->cksum) {
+    if (afl->shm.cmp_map->headers[tmp->id].hits < tmp->hits + 1) {
 
       return 1;
     
     }
+  
   }
   else {
 
-    if (afl->shm.mem_map->headers[tmp->id].hits < tmp->hits + 1 ||
-        cksum != tmp->cksum) {
+    if (afl->shm.mem_map->headers[tmp->id].hits < tmp->hits + 1) {
       
       return 1;
 
     }
+  
   }
 
   return 0;
@@ -1391,7 +1376,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
       afl->out_dir, afl->queue_cur->id, afl->tainted_len, 
       get_cur_time() + afl->prev_run_time - afl->start_time, 
       strrchr(afl->queue_cur->fname, '/') + 1);
-
+  
   }
   else {
 
@@ -1444,11 +1429,11 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
     fclose(f);
     ck_free(queue_fn);
 
-  }
+  }   
   
 }
 // cmplog mode instruction inference
-void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
+void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   
   struct cmp_operands *o = NULL, *orig_o = NULL;
 
@@ -1536,14 +1521,14 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
 
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs, cksum);
+        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs);
           
       }
       else if (s128_v1 != orig_s128_v1) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs, cksum);
+        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs);
 
       }
 
@@ -1555,7 +1540,7 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, CMP_V0, ofs, cksum);
+      add_cmp_tainted_info(afl, i, j, CMP_V0, ofs);
      
     }
     // only handle one situation
@@ -1563,7 +1548,7 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, cksum);
+      add_cmp_tainted_info(afl, i, j, CMP_V1, ofs);
       
     }
   
@@ -1582,7 +1567,7 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
 
 }
 
-void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
+void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
 
   struct cmpfn_operands *o = NULL, *orig_o = NULL;
 
@@ -1610,7 +1595,7 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
 
       afl->queue_cur->c_bytes[TAINT_CMP] = 
         add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs, cksum);
+      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs);
      
     }
 
@@ -1618,7 +1603,7 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
         add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, cksum);
+      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs);
       
     }
 
@@ -1629,7 +1614,7 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds, u64 cksum) {
 
 }
 
-void cmp_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
+void cmp_inference(afl_state_t *afl, u32 ofs) {
   
   u8 is_covered;
   u32 loggeds, idx;
@@ -1656,19 +1641,24 @@ void cmp_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
       
       if (afl->virgin_bits[idx])
         is_covered = 0;
-
+ 
     }
-
-    if (is_covered) continue;
+    
+    if (is_covered) {
+      
+      afl->skip_inst++;
+      continue;
+    
+    }
 
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
       
-      ins_inference(afl, ofs, i, loggeds, cksum);
+      ins_inference(afl, ofs, i, loggeds);
 
     }
     else {
 
-      rtn_inference(afl, ofs, i, loggeds, cksum);
+      rtn_inference(afl, ofs, i, loggeds);
 
     }
 
@@ -1676,7 +1666,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
 
 }
 
-void mem_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
+void mem_inference(afl_state_t *afl, u32 ofs) {
 
   struct hook_va_arg_operand *va_o = NULL, *orig_va_o = NULL;
   struct hook_operand *o = NULL, *orig_o = NULL;
@@ -1737,7 +1727,7 @@ void mem_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
             
             afl->queue_cur->c_bytes[TAINT_MEM] = 
               add_tainted(afl->queue_cur->c_bytes[TAINT_MEM], ofs, 1);
-            add_mem_tainted_info(afl, i, j, MEM_SIZE, ofs, 0, cksum);
+            add_mem_tainted_info(afl, i, j, MEM_SIZE, ofs, 0);
 
           }
           break;
@@ -1767,7 +1757,7 @@ void mem_inference(afl_state_t *afl, u32 ofs, u64 cksum) {
   
               afl->queue_cur->c_bytes[TAINT_MEM] = 
                 add_tainted(afl->queue_cur->c_bytes[TAINT_MEM], ofs, 1);
-              add_mem_tainted_info(afl, i, j, MEM_IDX, ofs, idx, cksum);
+              add_mem_tainted_info(afl, i, j, MEM_IDX, ofs, idx);
             
             }
 
@@ -2037,7 +2027,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       //if (exec_cksum != cksum) goto taint_next_iterator;
 
       // infer result
-      (*taint_mode.ops.inference)(afl, i, 0);
+      (*taint_mode.ops.inference)(afl, i);
       
       // reset buffer
       buf[i] = orig_buf[i];
@@ -2064,7 +2054,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   
   // reset state info
   afl->tainted_len = 0;
-  afl->unstable_len = 0;
+  afl->skip_inst = 0;
   memset(afl->ht_tainted, 0, MEMLOG_HOOK_NUM * sizeof(u32));
   
   if (mode == TAINT_CMP) {

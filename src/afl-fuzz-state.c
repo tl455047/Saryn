@@ -631,6 +631,10 @@ void afl_state_symbolic_terminate(void) {
     
     // rename s2e-out-*/testcase- to queue to match the
     // format of afl sync dir
+    s32 status;
+    while(waitpid(-1, &status, WNOHANG) > 0) {
+
+    }
     
     el->ready_for_symbolic = 1; 
     el->ready_for_sync = 1;

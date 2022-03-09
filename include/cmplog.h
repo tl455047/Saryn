@@ -75,6 +75,7 @@ typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
 struct cmp_succ_loc {
   
+  u64 ret_addr;
   u32 num_of_succ;
   u32 cur_loc[4];
   
