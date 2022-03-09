@@ -183,6 +183,16 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
     }
     
+    // reset cpu affinity
+    cpu_set_t c;
+    CPU_ZERO(&c);
+
+    if (sched_setaffinity(0, sizeof(c), &c)) {
+
+      PFATAL("setaffinity failed");
+
+    }
+
     char *argv[1];
     argv[0] = NULL;
     
