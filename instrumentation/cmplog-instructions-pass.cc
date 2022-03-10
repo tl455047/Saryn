@@ -544,8 +544,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           int cnt = 0;
           size_t Idx;
           GlobalVariable *FunctionGuardArray;
-          MDNode *N = cmpInst->getMetadata("successor.curloc");
-          if (N) {
+          MDNode *N;
+          if ((N = cmpInst->getMetadata("successor.curloc"))) {
             
             for (auto it = N->op_begin(); it != N->op_end(); it++) {
             
