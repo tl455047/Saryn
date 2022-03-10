@@ -521,5 +521,8 @@
 /* Maximum allowed fails per MEM value. Default: 128 */
 #define MEMLOG_FAIL_MAX 96 * 2
 
+/* cmplog fsrv timeout to ensure taint inference completed */
+#define TAINT_CMP_TIMEOUT 5000
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

@@ -174,15 +174,26 @@ void reset_cpu_bind(afl_state_t *afl) {
   closedir(d);
 
   size_t cpu_start = 0;
-  
+  cpu_set_t orig_c;
+
+  if (sched_getaffinity(0, sizeof(orig_c), &orig_c)) {
+
+    PFATAL("getaffinity failed");
+
+  }
+
   CPU_ZERO(&c);
 
   for (i = cpu_start; i < afl->cpu_core_count; i++) {
 
     if (cpu_used[i]) { continue; }
 
-    CPU_SET(i, &c);
+    if (!CPU_ISSET(i, &orig_c)) {
 
+      CPU_SET(i, &c);
+    
+    }
+    
   }
 
   if (sched_setaffinity(0, sizeof(c), &c)) {

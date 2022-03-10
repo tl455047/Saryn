@@ -1634,7 +1634,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
       loggeds = CMP_MAP_H;
     
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
-      
+
       // skip the instruction which all successor are already covered  
       is_covered = 1;
       for (u32 j = 0; j < afl->shm.cmp_map->loc[i].num_of_succ; j++) {
@@ -2067,6 +2067,10 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     taint_mode.ops.inference = cmp_inference;
     taint_mode.map = afl->shm.cmp_map;
     
+    // set cmplog fsrv timeout
+    // ensure taint inference completed
+    afl->cmplog_fsrv.exec_tmout = TAINT_CMP_TIMEOUT;
+
     if (unlikely(!afl->orig_cmp_map)) {
 
       afl->orig_cmp_map = ck_alloc(sizeof(struct cmp_map));

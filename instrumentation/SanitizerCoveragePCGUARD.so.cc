@@ -1341,7 +1341,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
   if (Options.TracePCGuard) {
     
-    /* Deliver FunctionGuardArray and index to each cmp instruction
+    /* Deliver FunctionGuardArray and index to each cmp inst. or switch inst.
        in predecessor of current block */
     
     for (auto it = pred_begin(&BB); it != pred_end(&BB); it++) {
@@ -1352,7 +1352,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
           std::vector<Metadata *> MetadataArray;
           MetadataArray.clear();
           MDNode *N;
-          if ((N = selectcmpInst->getMetadata("successor.curloc"))) {
+          if ((N = I.getMetadata("successor.curloc"))) {
             for (auto it = N->op_begin(); it != N->op_end(); it++) {
               MetadataArray.push_back(it->get());
             }
@@ -1363,8 +1363,19 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
             MDString::get(*C, FunctionGuardArray->getName()));
           MetadataArray.push_back(DIEn);
           N = MDNode::get(*C, MetadataArray);
-          selectcmpInst->setMetadata("successor.curloc", N);
+          I.setMetadata("successor.curloc", N);
         }
+        /*SwitchInst *selectswitchInst = nullptr;
+        if ((selectswitchInst = dyn_cast<SwitchInst>(&I))) {
+          // since cmplog switch pass is before PCGUARD, therefore, 
+          // we need to insert code here.
+          MDNode *N;
+          if ((N = I.getMetadata("cmplog.switch"))) {
+            for (auto it = N->op_begin(); it != N->op_end(); it++) {
+
+            }
+          }
+        }*/
       }
     }
 
