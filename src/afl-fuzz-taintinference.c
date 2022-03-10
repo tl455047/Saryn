@@ -1633,26 +1633,26 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     if (loggeds > CMP_MAP_H) 
       loggeds = CMP_MAP_H;
     
-    // skip the instruction which all successor are already covered
-    is_covered = 1;
-    for (u32 j = 0; j < afl->shm.cmp_map->loc[i].num_of_succ; j++) {
-      
-      idx = afl->shm.cmp_map->loc[j].cur_loc[j];
-      
-      if (afl->virgin_bits[idx])
-        is_covered = 0;
- 
-    }
-    
-    if (is_covered) {
-      
-      afl->skip_inst++;
-      continue;
-    
-    }
-
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
       
+      // skip the instruction which all successor are already covered  
+      is_covered = 1;
+      for (u32 j = 0; j < afl->shm.cmp_map->loc[i].num_of_succ; j++) {
+        
+        idx = afl->shm.cmp_map->loc[j].cur_loc[j];
+        
+        if (afl->virgin_bits[idx])
+          is_covered = 0;
+  
+      }
+      
+      if (is_covered) {
+        
+        afl->skip_inst++;
+        continue;
+      
+      }
+
       ins_inference(afl, ofs, i, loggeds);
 
     }
