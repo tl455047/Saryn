@@ -169,6 +169,11 @@ class ModuleSanitizerCoverage {
   std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
                                                 Type *Ty);
 
+  void SetCurLocMetadata(Instruction &I, size_t Idx);
+  void FindInstrumentedBlock(BasicBlock *BB, Instruction &I, 
+                             ArrayRef<BasicBlock *> AllBlocks);
+  void DeliverCurLoc(BasicBlock *BB, ArrayRef<BasicBlock *> AllBlocks);
+
   void SetNoSanitizeMetadata(Instruction *I) {
 
     I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
@@ -1151,10 +1156,14 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
 
   if (AllBlocks.empty() && !special && !local_selects) return false;
 
-  if (!AllBlocks.empty())
+  if (!AllBlocks.empty()) {
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
 
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
+      DeliverCurLoc(AllBlocks[i], AllBlocks);
+  
+  }
   return true;
 
 }
@@ -1314,6 +1323,55 @@ void ModuleSanitizerCoverage::InjectTraceForCmp(
 
 }
 
+void ModuleSanitizerCoverage::SetCurLocMetadata(Instruction &I, size_t Idx) {
+
+  std::vector<Metadata *> MetadataArray;
+  MetadataArray.clear();
+  MDNode *N;
+  
+  if ((N = I.getMetadata("successor.curloc"))) {
+    for (auto it = N->op_begin(); it != N->op_end(); it++) {
+      MetadataArray.push_back(it->get());
+    }
+  }
+  
+  //errs() << "Appending Function Guard Array: " << FunctionGuardArray->getName() << "Idx: " << Idx << "\n";
+  DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, Idx, false), false, 
+    MDString::get(*C, FunctionGuardArray->getName()));
+  MetadataArray.push_back(DIEn);
+  N = MDNode::get(*C, MetadataArray);
+  I.setMetadata("successor.curloc", N);
+
+}
+
+void ModuleSanitizerCoverage::FindInstrumentedBlock(BasicBlock *BB, Instruction &I,
+                                                    ArrayRef<BasicBlock *> AllBlocks) {
+  BasicBlock *SuccBB;
+  for(auto it = succ_begin(BB); it != succ_end(BB); it++) {
+    SuccBB = *it;
+    auto BBIt = std::find(AllBlocks.begin(), AllBlocks.end(), SuccBB);
+    if (BBIt != AllBlocks.end()) {
+      SetCurLocMetadata(I, std::distance(AllBlocks.begin(), BBIt));
+      errs() << "succ " << std::distance(AllBlocks.begin(), BBIt) << " "; 
+    }   
+    else 
+      FindInstrumentedBlock(SuccBB, I, AllBlocks);   
+  
+  }
+}
+
+void ModuleSanitizerCoverage::DeliverCurLoc(BasicBlock *BB, 
+                                            ArrayRef<BasicBlock *> AllBlocks) {
+  if (Options.TracePCGuard) {
+    for(auto &I : *BB) {
+      CmpInst *selectcmpInst = nullptr;
+      if ((selectcmpInst = dyn_cast<CmpInst>(&I))) {
+        FindInstrumentedBlock(BB, I, AllBlocks);
+      }
+    }
+  }
+}
+
 void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
                                                     size_t Idx,
                                                     bool   IsLeafFunc) {
@@ -1340,44 +1398,6 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
   }
 
   if (Options.TracePCGuard) {
-    
-    /* Deliver FunctionGuardArray and index to each cmp inst. or switch inst.
-       in predecessor of current block */
-    
-    for (auto it = pred_begin(&BB); it != pred_end(&BB); it++) {
-      BasicBlock *PredBB = *it;
-      for (auto &I : *PredBB) {
-        CmpInst *selectcmpInst = nullptr;
-        if ((selectcmpInst = dyn_cast<CmpInst>(&I))) {
-          std::vector<Metadata *> MetadataArray;
-          MetadataArray.clear();
-          MDNode *N;
-          if ((N = I.getMetadata("successor.curloc"))) {
-            for (auto it = N->op_begin(); it != N->op_end(); it++) {
-              MetadataArray.push_back(it->get());
-            }
-          }
-         
-          //errs() << "Appending Function Guard Array: " << FunctionGuardArray->getName() << "Idx: " << Idx << "\n";
-          DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, Idx, false), false, 
-            MDString::get(*C, FunctionGuardArray->getName()));
-          MetadataArray.push_back(DIEn);
-          N = MDNode::get(*C, MetadataArray);
-          I.setMetadata("successor.curloc", N);
-        }
-        /*SwitchInst *selectswitchInst = nullptr;
-        if ((selectswitchInst = dyn_cast<SwitchInst>(&I))) {
-          // since cmplog switch pass is before PCGUARD, therefore, 
-          // we need to insert code here.
-          MDNode *N;
-          if ((N = I.getMetadata("cmplog.switch"))) {
-            for (auto it = N->op_begin(); it != N->op_end(); it++) {
-
-            }
-          }
-        }*/
-      }
-    }
 
     /* Get CurLoc */
 

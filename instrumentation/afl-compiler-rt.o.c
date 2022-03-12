@@ -1604,6 +1604,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
@@ -1640,6 +1641,7 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
@@ -1684,6 +1686,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
@@ -1728,6 +1731,7 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
@@ -1777,6 +1781,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
@@ -1826,6 +1831,7 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
       __afl_cmp_map->loc[k].cur_loc[i] = __afl_loc_ptr[i+1];
     }
     __afl_cmp_map->loc[k].ret_addr = (uintptr_t)__builtin_return_address(0);
+    __afl_loc_ptr[0] = 0;
 
   } else {
 
