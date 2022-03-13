@@ -1159,6 +1159,9 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   if (!AllBlocks.empty()) {
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
+
+    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
+      DeliverCurLoc(AllBlocks[i], AllBlocks);
   }
 
   return true;

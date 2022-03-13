@@ -524,5 +524,8 @@
 /* cmplog fsrv timeout to ensure taint inference completed */
 #define TAINT_CMP_TIMEOUT 5000
 
+/* s2e child pid */
+#define S2E_ENV_VAR "__S2E_PID"
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

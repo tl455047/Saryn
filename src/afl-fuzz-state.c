@@ -632,7 +632,13 @@ void afl_state_symbolic_terminate(void) {
     // rename s2e-out-*/testcase- to queue to match the
     // format of afl sync dir
     s32 status;
-    while(waitpid(-1, &status, WNOHANG) > 0) {
+    u8 *env = getenv(S2E_ENV_VAR);
+    
+    if (!env) return;
+
+    pid_t pid = atoi(env);
+
+    while(waitpid(pid, &status, WNOHANG) > 0) {
 
     }
     
@@ -663,6 +669,8 @@ void afl_state_symbolic_terminate(void) {
     
     ck_free(fn);
     ck_free(new_fn);
+
+    unsetenv(S2E_ENV_VAR);
 
   });
   

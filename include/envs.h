@@ -139,6 +139,7 @@ static char *afl_environment_variables[] = {
     "AFL_LLVM_INSTRUMENT_FILE",
     "AFL_LLVM_THREADSAFE_INST",
     "AFL_LLVM_SKIP_NEVERZERO",
+    "AFL_LLVM_SYMBOLIC",
     "AFL_NO_AFFINITY",
     "AFL_TRY_AFFINITY",
     "AFL_LLVM_LTO_STARTID",
