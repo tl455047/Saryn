@@ -693,12 +693,14 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     }
 
     if (symbolic_mode) {
-      // for now symbolic is only compatible with cmplog-instruction-pass
-      if (lto_mode && !have_c) {
+      
+       if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
-        
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
+
       } else {
 
         cc_params[cc_par_cnt++] = "-Xclang";
@@ -706,6 +708,12 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] =
             alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/cmplog-routines-pass.so", obj_path);
 
       }
 
