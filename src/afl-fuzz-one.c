@@ -2815,28 +2815,6 @@ havoc_stage:
     invoke_symbolic(afl, out_buf, in_buf, len);
     
   }
-  // testing
-  if (afl->shm.cmplog_mode) {
-    
-    //u8* tmp_trace_bits = ck_alloc(afl->fsrv.map_size);
-    u64 cksum, exec_cksum;
-    common_fuzz_stuff(afl, out_buf, len);
-    
-    cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-    
-    common_fuzz_stuff(afl, out_buf, len);
-    
-    exec_cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
-    //ck_free(tmp_trace_bits);
-    if (cksum == exec_cksum) {
-      fprintf(stderr, "equal\n");
-    }
-    else {
-      fprintf(stderr, "not equal\n");
-    }
-
-
-  }
 
 #ifndef IGNORE_FINDS
 

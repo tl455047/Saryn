@@ -1159,11 +1159,8 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   if (!AllBlocks.empty()) {
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
-
-    for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
-      DeliverCurLoc(AllBlocks[i], AllBlocks);
-  
   }
+
   return true;
 
 }
@@ -1352,7 +1349,6 @@ void ModuleSanitizerCoverage::FindInstrumentedBlock(BasicBlock *BB, Instruction 
     auto BBIt = std::find(AllBlocks.begin(), AllBlocks.end(), SuccBB);
     if (BBIt != AllBlocks.end()) {
       SetCurLocMetadata(I, std::distance(AllBlocks.begin(), BBIt));
-      errs() << "succ " << std::distance(AllBlocks.begin(), BBIt) << " "; 
     }   
     else 
       FindInstrumentedBlock(SuccBB, I, AllBlocks);   
