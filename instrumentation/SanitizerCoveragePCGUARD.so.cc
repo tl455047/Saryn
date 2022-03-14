@@ -90,6 +90,16 @@ const char SanCovLowestStackName[] = "__sancov_lowest_stack";
 static const char *skip_nozero;
 static const char *use_threadsafe_counters;
 
+static cl::opt<bool> ClDirectMode(
+    "direct-mode",
+    cl::desc("Use aflgo directed instrumentation"),
+    cl::Hidden, cl::init(false));
+
+static cl::opt<std::string> ClDirectDistance(
+    "direct-distance",
+    cl::desc("target distance"),
+    cl::Hidden);
+
 namespace {
 
 SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
@@ -173,7 +183,10 @@ class ModuleSanitizerCoverage {
   void FindInstrumentedBlock(BasicBlock *BB, Instruction &I, 
                              ArrayRef<BasicBlock *> AllBlocks);
   void DeliverCurLoc(BasicBlock *BB, ArrayRef<BasicBlock *> AllBlocks);
-
+  void GetDebugLoc(const Instruction *I, std::string &Filename,
+                      unsigned &Line);
+  void InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, LoadInst *MapPtr);
+  
   void SetNoSanitizeMetadata(Instruction *I) {
 
     I->setMetadata(I->getModule()->getMDKindID("nosanitize"),
@@ -211,8 +224,12 @@ class ModuleSanitizerCoverage {
 
   uint32_t        instr = 0, selects = 0, unhandled = 0;
   GlobalVariable *AFLMapPtr = NULL;
+  GlobalVariable *AFLMapSize = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
+
+  std::map<std::string, int> DistanceBBMap;
+  std::vector<std::string> DistanceBB;
 
 };
 
@@ -440,6 +457,38 @@ bool ModuleSanitizerCoverage::instrumentModule(
   AFLMapPtr =
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+  if (ClDirectMode) {    
+    if (ClDirectDistance.empty()) {
+      errs() << "Unable to find distance file.\n";
+      return false;
+    }
+    AFLMapSize = 
+        new GlobalVariable(M, Int32Ty, false, 
+                           GlobalValue::ExternalLinkage, 0, "__afl_map_size");
+
+    std::ifstream cf(ClDirectDistance);
+    if (cf.is_open()) {
+
+      std::string line;
+      while (getline(cf, line)) {
+
+        std::size_t pos = line.find(",");
+        std::string BBName = line.substr(0, pos);
+        int bb_dis = (int) (100.0 * atof(line.substr(pos + 1, line.length()).c_str()));
+
+        DistanceBBMap.emplace(BBName, bb_dis);
+        DistanceBB.push_back(BBName);
+
+      }
+      cf.close();
+
+    } 
+    else {
+      errs() << "Unable to find " << ClDirectDistance << "\n";
+      return false;
+    }
+
+  }
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
@@ -1159,7 +1208,7 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
   if (!AllBlocks.empty()) {
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
-
+    
     for (auto &BB : F) 
       DeliverCurLoc(&BB, AllBlocks);
   }
@@ -1371,6 +1420,107 @@ void ModuleSanitizerCoverage::DeliverCurLoc(BasicBlock *BB,
   }
 }
 
+void ModuleSanitizerCoverage::GetDebugLoc(const Instruction *I, std::string &Filename,
+                        unsigned &Line) {
+#ifdef LLVM_OLD_DEBUG_API
+  DebugLoc Loc = I->getDebugLoc();
+  if (!Loc.isUnknown()) {
+    DILocation cDILoc(Loc.getAsMDNode(M.getContext()));
+    DILocation oDILoc = cDILoc.getOrigLocation();
+
+    Line = oDILoc.getLineNumber();
+    Filename = oDILoc.getFilename().str();
+
+    if (filename.empty()) {
+      Line = cDILoc.getLineNumber();
+      Filename = cDILoc.getFilename().str();
+    }
+  }
+#else
+  if (DILocation *Loc = I->getDebugLoc()) {
+    Line = Loc->getLine();
+    Filename = Loc->getFilename().str();
+
+    if (Filename.empty()) {
+      DILocation *oDILoc = Loc->getInlinedAt();
+      if (oDILoc) {
+        Line = oDILoc->getLine();
+        Filename = oDILoc->getFilename().str();
+      }
+    }
+  }
+#endif /* LLVM_OLD_DEBUG_API */
+}
+
+void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, LoadInst *MapPtr) {
+  
+  int distance = -1;
+  std::string BBName;
+  for (auto &I : BB) {
+    std::string filename;
+    unsigned line;
+    GetDebugLoc(&I, filename, line);
+
+    if (filename.empty() || line == 0)
+      continue;
+    std::size_t found = filename.find_last_of("/\\");
+    if (found != std::string::npos)
+      filename = filename.substr(found + 1);
+
+    BBName = filename + ":" + std::to_string(line);
+    break;
+  }
+
+  if (!BBName.empty()) {
+    
+    if (find(DistanceBB.begin(), DistanceBB.end(), BBName) != DistanceBB.end()) {
+
+      /* Find distance for BB */
+
+      std::map<std::string,int>::iterator it;
+      for (it = DistanceBBMap.begin(); it != DistanceBBMap.end(); ++it)
+        if (it->first.compare(BBName) == 0)
+          distance = it->second;
+      
+    }
+
+  }
+
+  if (distance >= 0) {
+
+    /* Add distance to shm[MAPSIZE] */
+
+    LoadInst *MapDistLoc = IRB.CreateLoad(Int32Ty, AFLMapSize);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapDistLoc);
+
+    Value *MapDistPtr = IRB.CreateGEP(MapPtr, MapDistLoc);
+
+    LoadInst *MapDist = IRB.CreateLoad(Int32Ty, MapDistPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapDist);
+
+    Value *IncrDist = IRB.CreateAdd(MapDist, ConstantInt::get(Int64Ty, (unsigned)distance));
+    
+    StoreInst *StoreCtx = IRB.CreateStore(IncrDist, MapDistPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
+    
+    /* Increase count at shm[MAPSIZE + (4 or 8)] */
+
+    Value *MapCntLoc = IRB.CreateAdd(MapDistLoc, ConstantInt::get(Int64Ty, 8));
+
+    Value *MapCntPtr = IRB.CreateGEP(MapPtr, MapCntLoc);
+    
+    LoadInst *MapCnt = IRB.CreateLoad(MapCntPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapCnt);
+
+    Value *IncrCnt = IRB.CreateAdd(MapCnt, One);
+
+    StoreCtx = IRB.CreateStore(IncrCnt, MapCntPtr);
+    ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
+  
+  }
+
+}
+
 void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
                                                     size_t Idx,
                                                     bool   IsLeafFunc) {
@@ -1446,7 +1596,9 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
       ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
 
     }
-
+    
+    if (ClDirectMode) 
+      InjectDistanceAtBlock(BB, IRB, MapPtr);
     // done :)
 
     //    IRB.CreateCall(SanCovTracePCGuard, Offset)->setCannotMerge();

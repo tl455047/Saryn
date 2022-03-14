@@ -59,6 +59,7 @@ static u8   cwd[4096];
 static u8   cmplog_mode;
 static u8   memlog_mode;
 static u8   symbolic_mode;
+static u8   direct_mode;
 u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
@@ -629,6 +630,16 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           cc_params[cc_par_cnt++] = "-Xclang";
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
+
+          if (direct_mode) {
+            
+            cc_params[cc_par_cnt++] = "-mllvm";
+            cc_params[cc_par_cnt++] = "-direct-mode=1";
+            cc_params[cc_par_cnt++] = "-mllvm";
+            cc_params[cc_par_cnt++] = 
+              alloc_printf("-direct-distance=%s/distance.cfg.txt", obj_path);
+          
+          }
 
         }
 
@@ -2157,6 +2168,10 @@ int main(int argc, char **argv, char **envp) {
   symbolic_mode = getenv("AFL_SYMBOLIC") || getenv("AFL_LLVM_SYMBOLIC");
   if (!be_quiet && symbolic_mode)
     printf("Symbolic mode");
+
+  direct_mode = getenv("AFL_DIRECT") || getenv("AFL_LLVM_DIRECT");
+  if (!be_quiet && direct_mode)
+    printf("Direct mode");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);

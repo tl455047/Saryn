@@ -562,8 +562,9 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                   Int32PtrTy);
 
               /* Store number of successors to LOC pointer[0] */
-              IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), LocPtr);
-              
+              StoreInst *StoreCtx = IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), LocPtr);
+              StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
               int i = 1;
               for (auto it = N->op_begin(); it != N->op_end(); it++) {
                 
@@ -583,6 +584,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
                     /* Load CurLoc */
                     LoadInst *CurLoc = IRB.CreateLoad(Int32Ty, GuardPtr);
+                    CurLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
                     /* Load LOC pointer */
                     LocPtr = IRB.CreateIntToPtr(
@@ -591,8 +593,8 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
                         Int32PtrTy);
 
                     /* Store CurLoc */
-                    IRB.CreateStore(CurLoc, LocPtr);
-                    
+                    StoreCtx = IRB.CreateStore(CurLoc, LocPtr);
+                    StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
                     //errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
                   }
 
