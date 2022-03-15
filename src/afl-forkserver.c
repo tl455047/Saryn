@@ -1227,7 +1227,7 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
      must prevent any earlier operations from venturing into that
      territory. */
 
-  memset(fsrv->trace_bits, 0, fsrv->map_size);
+  memset(fsrv->trace_bits, 0, fsrv->map_size + 16);
 
   MEM_BARRIER();
 

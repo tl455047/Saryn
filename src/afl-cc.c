@@ -2167,11 +2167,11 @@ int main(int argc, char **argv, char **envp) {
 
   symbolic_mode = getenv("AFL_SYMBOLIC") || getenv("AFL_LLVM_SYMBOLIC");
   if (!be_quiet && symbolic_mode)
-    printf("Symbolic mode");
+    printf("Symbolic mode\n");
 
   direct_mode = getenv("AFL_DIRECT") || getenv("AFL_LLVM_DIRECT");
   if (!be_quiet && direct_mode)
-    printf("Direct mode");
+    printf("Direct mode\n");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);

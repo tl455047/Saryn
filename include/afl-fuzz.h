@@ -718,6 +718,10 @@ typedef struct afl_state {
   u8               ready_for_symbolic;
   u8               ready_for_sync;
   u8 *             s2e_out_dir;
+
+  /* Directed */
+  u8               direct_mode;
+  
   /* Custom mutators */
   struct custom_mutator *mutator;
 

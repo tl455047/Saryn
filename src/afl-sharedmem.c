@@ -319,7 +319,7 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
   // for qemu+unicorn we have to increase by 8 to account for potential
   // compcov map overwrite
   shm->shm_id =
-      shmget(IPC_PRIVATE, map_size == MAP_SIZE ? map_size + 8 : map_size,
+      shmget(IPC_PRIVATE, map_size + 16,
              IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
   if (shm->shm_id < 0) {
 

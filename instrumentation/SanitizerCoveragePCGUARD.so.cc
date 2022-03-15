@@ -481,7 +481,6 @@ bool ModuleSanitizerCoverage::instrumentModule(
 
       }
       cf.close();
-
     } 
     else {
       errs() << "Unable to find " << ClDirectDistance << "\n";
@@ -1422,21 +1421,6 @@ void ModuleSanitizerCoverage::DeliverCurLoc(BasicBlock *BB,
 
 void ModuleSanitizerCoverage::GetDebugLoc(const Instruction *I, std::string &Filename,
                         unsigned &Line) {
-#ifdef LLVM_OLD_DEBUG_API
-  DebugLoc Loc = I->getDebugLoc();
-  if (!Loc.isUnknown()) {
-    DILocation cDILoc(Loc.getAsMDNode(M.getContext()));
-    DILocation oDILoc = cDILoc.getOrigLocation();
-
-    Line = oDILoc.getLineNumber();
-    Filename = oDILoc.getFilename().str();
-
-    if (filename.empty()) {
-      Line = cDILoc.getLineNumber();
-      Filename = cDILoc.getFilename().str();
-    }
-  }
-#else
   if (DILocation *Loc = I->getDebugLoc()) {
     Line = Loc->getLine();
     Filename = Loc->getFilename().str();
@@ -1449,10 +1433,10 @@ void ModuleSanitizerCoverage::GetDebugLoc(const Instruction *I, std::string &Fil
       }
     }
   }
-#endif /* LLVM_OLD_DEBUG_API */
 }
 
-void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, LoadInst *MapPtr) {
+void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, 
+                                                    LoadInst *MapPtr) {
   
   int distance = -1;
   std::string BBName;
@@ -1490,12 +1474,12 @@ void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> 
 
     /* Add distance to shm[MAPSIZE] */
 
-    LoadInst *MapDistLoc = IRB.CreateLoad(Int32Ty, AFLMapSize);
+    LoadInst *MapDistLoc = IRB.CreateLoad(AFLMapSize);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapDistLoc);
 
     Value *MapDistPtr = IRB.CreateGEP(MapPtr, MapDistLoc);
 
-    LoadInst *MapDist = IRB.CreateLoad(Int32Ty, MapDistPtr);
+    LoadInst *MapDist = IRB.CreateLoad(Int64Ty, MapDistPtr);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapDist);
 
     Value *IncrDist = IRB.CreateAdd(MapDist, ConstantInt::get(Int64Ty, (unsigned)distance));
@@ -1504,20 +1488,18 @@ void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> 
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
     
     /* Increase count at shm[MAPSIZE + (4 or 8)] */
-
-    Value *MapCntLoc = IRB.CreateAdd(MapDistLoc, ConstantInt::get(Int64Ty, 8));
-
-    Value *MapCntPtr = IRB.CreateGEP(MapPtr, MapCntLoc);
     
-    LoadInst *MapCnt = IRB.CreateLoad(MapCntPtr);
+    Value *MapCntPtr = IRB.CreateGEP(MapDistPtr, ConstantInt::get(Int32Ty, 8));
+      
+    LoadInst *MapCnt = IRB.CreateLoad(Int64Ty, MapCntPtr);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(MapCnt);
 
     Value *IncrCnt = IRB.CreateAdd(MapCnt, One);
 
     StoreCtx = IRB.CreateStore(IncrCnt, MapCntPtr);
     ModuleSanitizerCoverage::SetNoSanitizeMetadata(StoreCtx);
-  
-  }
+
+  } 
 
 }
 
@@ -1599,6 +1581,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
     
     if (ClDirectMode) 
       InjectDistanceAtBlock(BB, IRB, MapPtr);
+
     // done :)
 
     //    IRB.CreateCall(SanCovTracePCGuard, Offset)->setCannotMerge();
