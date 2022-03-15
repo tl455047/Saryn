@@ -307,8 +307,8 @@ ifeq "$(TEST_MMAP)" "1"
         LDFLAGS += -Wno-deprecated-declarations
 endif
 
-PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o ./memlog-rt.o
-PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so ./memlog-pass.so
+PROGS_ALWAYS = ./afl-cc ./afl-compiler-rt.o ./afl-compiler-rt-32.o ./afl-compiler-rt-64.o 
+PROGS        = $(PROGS_ALWAYS) ./afl-llvm-pass.so ./SanitizerCoveragePCGUARD.so ./split-compares-pass.so ./split-switches-pass.so ./cmplog-routines-pass.so ./cmplog-instructions-pass.so ./cmplog-switches-pass.so ./afl-llvm-dict2file.so ./compare-transform-pass.so ./afl-ld-lto ./afl-llvm-lto-instrumentlist.so ./SanitizerCoverageLTO.so ./memlog-pass.so ./direct-preprocess-pass.so
 
 # If prerequisites are not given, warn, do not build anything, and exit with code 0
 ifeq "$(LLVMVER)" ""
@@ -437,6 +437,9 @@ afl-llvm-dict2file.so:	instrumentation/afl-llvm-dict2file.so.cc instrumentation/
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) instrumentation/afl-llvm-common.o
 
 ./memlog-pass.so:	instrumentation/memlog-pass.cc | test_deps
+	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) 
+
+./direct-preprocess-pass.so: instrumentation/direct-preprocess-pass.so.cc | test_deps
 	$(CXX) $(CLANG_CPPFL) -shared $< -o $@ $(CLANG_LFL) 
 
 .PHONY: document

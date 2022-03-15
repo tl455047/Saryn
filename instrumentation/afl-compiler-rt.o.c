@@ -2382,4 +2382,10 @@ void __afl_set_persistent_mode(u8 mode) {
 
 }
 
+void __afl_assert_failed(int status) {
+  
+  assert(status != 9487);
+
+}
+
 #undef write_error

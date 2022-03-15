@@ -60,6 +60,7 @@ static u8   cmplog_mode;
 static u8   memlog_mode;
 static u8   symbolic_mode;
 static u8   direct_mode;
+static u8   direct_preprocess_mode;
 u8          use_stdin;                                             /* dummy */
 // static u8 *march_opt = CFLAGS_OPT;
 
@@ -586,7 +587,54 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     cc_params[cc_par_cnt++] = "-fno-experimental-new-pass-manager";
 #endif
 
-    if (lto_mode && !have_c) {
+    if (direct_preprocess_mode) {
+
+      if (lto_mode && !have_c) {
+
+        cc_params[cc_par_cnt++] = alloc_printf(
+            "-Wl,-mllvm=-load=%s/direct-preprocess-pass.so", obj_path);
+
+      } else {
+
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] = "-load";
+        cc_params[cc_par_cnt++] = "-Xclang";
+        cc_params[cc_par_cnt++] =
+            alloc_printf("%s/direct-preprocess-pass.so", obj_path);
+        
+      }
+
+      u8 *direct_dir = getenv("AFL_DIRECT_DIR");
+      
+      if (!direct_dir) {
+        
+        cc_params[cc_par_cnt++] = "-mllvm";
+        cc_params[cc_par_cnt++] = 
+              alloc_printf("-targets=%s/BBtargets.txt", obj_path);
+        
+        cc_params[cc_par_cnt++] = "-mllvm";
+        cc_params[cc_par_cnt++] = 
+              alloc_printf("-outdir=%s", obj_path);
+      
+      }
+      else {
+
+        cc_params[cc_par_cnt++] = "-mllvm";
+        cc_params[cc_par_cnt++] = 
+              alloc_printf("-targets=%s/BBtargets.txt", direct_dir);
+        
+        cc_params[cc_par_cnt++] = "-mllvm";
+        cc_params[cc_par_cnt++] = 
+              alloc_printf("-outdir=%s", direct_dir);
+      
+      }
+
+      cc_params[cc_par_cnt++] = "-flto";
+      cc_params[cc_par_cnt++] = "-fuse-ld=gold";
+      cc_params[cc_par_cnt++] = "-Wl,-plugin-opt=save-temps";
+
+    }
+    else if (lto_mode && !have_c) {
 
       u8 *ld_path = NULL;
       if (getenv("AFL_REAL_LD")) { ld_path = strdup(getenv("AFL_REAL_LD")); }
@@ -636,9 +684,22 @@ static void edit_params(u32 argc, char **argv, char **envp) {
             cc_params[cc_par_cnt++] = "-mllvm";
             cc_params[cc_par_cnt++] = "-direct-mode=1";
             cc_params[cc_par_cnt++] = "-mllvm";
-            cc_params[cc_par_cnt++] = 
-              alloc_printf("-direct-distance=%s/distance.cfg.txt", obj_path);
-          
+
+            u8 *direct_dir = getenv("AFL_DIRECT_DIR");
+
+            if (!direct_dir) {
+              
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-direct-distance=%s/distance.cfg.txt", obj_path);
+            
+            }
+            else {
+              
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-direct-distance=%s/distance.cfg.txt", direct_dir);
+
+            }
+
           }
 
         }
@@ -2172,6 +2233,10 @@ int main(int argc, char **argv, char **envp) {
   direct_mode = getenv("AFL_DIRECT") || getenv("AFL_LLVM_DIRECT");
   if (!be_quiet && direct_mode)
     printf("Direct mode\n");
+
+  direct_preprocess_mode = getenv("AFL_DIRECT_PREPROCESS") || getenv("AFL_LLVM_DIRECT_PREPROCESS");
+  if (!be_quiet && direct_preprocess_mode)
+    printf("Direct Preprocess mode\n");
 
 #if !defined(__ANDROID__) && !defined(ANDROID)
   ptr = find_object("afl-compiler-rt.o", argv[0]);
