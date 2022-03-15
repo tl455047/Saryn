@@ -199,8 +199,10 @@ bool DirectPreprocess::runOnModule(Module &M) {
     errs() << "Could not create directory " << dotfiles.c_str() << ".\n";
   }
   
+  Type *VoidTy = Type::getVoidTy(M.getContext());
   Type *Int32Ty = IntegerType::getInt32Ty(M.getContext());
-  FunctionCallee AsserFn = M.getOrInsertFunction("__afl_assert_failed", Int32Ty);
+  FunctionType *AssertFnTy = FunctionType::get(VoidTy, {Int32Ty}, false);
+  FunctionCallee AssertFn = M.getOrInsertFunction("__afl_assert_failed", AssertFnTy);
 
   for (auto &F : M) {
 
@@ -251,9 +253,9 @@ bool DirectPreprocess::runOnModule(Module &M) {
               
               IRBuilder<> IRB(&I);
               // let target failed
-              auto callInst = IRB.CreateCall(AsserFn, ConstantInt::get(Int32Ty, 9487));  
+              auto callInst = IRB.CreateCall(AssertFn, {ConstantInt::get(Int32Ty, 9487)});  
               callInst->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
-              errs() << "Inster Assertion at " << filename << ":" << line << "\n";
+              errs() << "Insert Assertion at " << filename << ":" << line << "\n";
               
             }
 
@@ -305,7 +307,7 @@ bool DirectPreprocess::runOnModule(Module &M) {
     }
   
   }
-
+  
   return true;
 
 }
