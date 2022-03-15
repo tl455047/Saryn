@@ -243,6 +243,8 @@ struct queue_entry {
   u8                    taint_failed[TAINT_MODE];
   struct queue_entry *mother;           /* queue entry this based on        */
 
+  double distance;                      /* direct mode distance             */
+  
 };
 
 struct extra_data {
@@ -721,7 +723,10 @@ typedef struct afl_state {
 
   /* Directed */
   u8               direct_mode;
-  
+  double           cur_distance;
+  double           max_distance;
+  double           min_distance;
+
   /* Custom mutators */
   struct custom_mutator *mutator;
 
