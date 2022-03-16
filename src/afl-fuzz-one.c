@@ -2809,9 +2809,18 @@ havoc_stage:
 
   }
   
+  // seems that s2e will stuck for unknown reason, try to figure out
+  // whether s2e is stuck, if it is, kill it, then we can launch a 
+  // new symbolic analysis.
+  if(afl->symbolic_mode && !afl->ready_for_symbolic
+            && !afl->ready_for_sync) {
+
+    check_symbolic_stuck(afl);   
+
+  }
   // we should not apply this analysis for every seed.
   if (afl->symbolic_mode && afl->ready_for_symbolic 
-        && (u32)len <= afl->cmplog_max_filesize) {
+        && (u32)len <= SYMBOLIC_MAX_FILE_SIZE) {
     
     invoke_symbolic(afl, out_buf, in_buf, len);
     

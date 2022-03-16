@@ -527,5 +527,8 @@
 /* s2e child pid */
 #define S2E_ENV_VAR "__S2E_PID"
 
+/* symbolic maximum file size */
+#define SYMBOLIC_MAX_FILE_SIZE 1 << 12
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

@@ -58,7 +58,7 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   if (afl->shm.cmplog_mode) {
     
     // write selected inst.'s returne address to s2e project dir
-    fn = alloc_printf("%s/ret_addr", afl->symbolic_path);
+    fn = alloc_printf("%s/ret-addr", afl->symbolic_path);
     f = create_ffile(fn);
 
     tmp = afl->queue_cur->taint[TAINT_CMP];
@@ -347,4 +347,9 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // cooperate with, and s2e does not handle symbolic pointer well currently.
   return 0;
 
+}
+
+void check_symbolic_stuck(afl_state_t *afl) {
+
+  
 }

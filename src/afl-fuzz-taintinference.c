@@ -1429,7 +1429,37 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
     fclose(f);
     ck_free(queue_fn);
 
-  }   
+  }  
+  // selected ret
+  if (mode == TAINT_CMP) {
+
+    u32 cnt = 0;
+    tmp = afl->queue_cur->taint[TAINT_CMP];
+
+    for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+      
+      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;
+      cnt++;
+
+    }
+    // write selected inst.'s returne address to s2e project dir
+    queue_fn = alloc_printf("%s/ret-addr-%u", afl->symbolic_path, cnt);
+    f = create_ffile(queue_fn);
+
+    for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+    
+      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;
+
+      fprintf(f, "%llx\n", tmp[i]->ret_addr);
+
+    }
+
+    fclose(f);
+    ck_free(queue_fn);
+
+  } 
   
 }
 // cmplog mode instruction inference

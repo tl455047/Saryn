@@ -720,6 +720,7 @@ typedef struct afl_state {
   u8               ready_for_symbolic;
   u8               ready_for_sync;
   u8 *             s2e_out_dir;
+  u64              s2e_usr_time;
 
   /* Directed */
   u8               direct_mode;
@@ -1239,6 +1240,8 @@ void destroy_taint(afl_state_t *afl, struct queue_entry *q);
 
 /* Symbolic */
 u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len);
+
+void check_symbolic_stuck(afl_state_t *afl);
 
 void setup_symbolic_signal_handlers();
 
