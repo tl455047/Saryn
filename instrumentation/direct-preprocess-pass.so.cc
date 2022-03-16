@@ -58,13 +58,13 @@
 
 using namespace llvm;
 
-cl::opt<std::string> TargetsFile(
-    "targets",
+cl::opt<std::string> ClPreProcessTargetsFile(
+    "preprocess-targets",
     cl::desc("Input file containing the target lines of code."),
     cl::value_desc("targets"));
 
-cl::opt<std::string> OutDirectory(
-    "outdir",
+cl::opt<std::string> ClPreProcessOutDirectory(
+    "preprocess-outdir",
     cl::desc("Output directory where Ftargets.txt, Fnames.txt, and BBnames.txt are generated."),
     cl::value_desc("outdir"));
 
@@ -169,40 +169,35 @@ static bool isBlacklisted(const Function *F) {
 
 bool DirectPreprocess::runOnModule(Module &M) {
 
-  if (TargetsFile.empty()) {
+  if (ClPreProcessTargetsFile.empty()) {
     errs() << "Cannot specify both '-targets'!\n";
     return false;
   }
   
-  if (OutDirectory.empty()) {
+  if (ClPreProcessOutDirectory.empty()) {
     errs() << "Provide output directory '-outdir <directory>'\n";
     return false;
   }  
 
   std::list<std::string> targets;
 
-  std::ifstream targetsfile(TargetsFile);
+  std::ifstream targetsfile(ClPreProcessTargetsFile);
   std::string line;
 
   while (std::getline(targetsfile, line))
     targets.push_back(line);
   targetsfile.close();
 
-  std::ofstream bbnames(OutDirectory + "/BBnames.txt", std::ofstream::out | std::ofstream::app);
-  std::ofstream bbcalls(OutDirectory + "/BBcalls.txt", std::ofstream::out | std::ofstream::app);
-  std::ofstream fnames(OutDirectory + "/Fnames.txt", std::ofstream::out | std::ofstream::app);
-  std::ofstream ftargets(OutDirectory + "/Ftargets.txt", std::ofstream::out | std::ofstream::app);
+  std::ofstream bbnames(ClPreProcessOutDirectory + "/BBnames.txt", std::ofstream::out | std::ofstream::app);
+  std::ofstream bbcalls(ClPreProcessOutDirectory + "/BBcalls.txt", std::ofstream::out | std::ofstream::app);
+  std::ofstream fnames(ClPreProcessOutDirectory + "/Fnames.txt", std::ofstream::out | std::ofstream::app);
+  std::ofstream ftargets(ClPreProcessOutDirectory + "/Ftargets.txt", std::ofstream::out | std::ofstream::app);
   
   /* Create dot-files directory */
-  std::string dotfiles(OutDirectory + "/dot-files");
+  std::string dotfiles(ClPreProcessOutDirectory + "/dot-files");
   if (sys::fs::create_directory(dotfiles)) {
     errs() << "Could not create directory " << dotfiles.c_str() << ".\n";
   }
-  
-  Type *VoidTy = Type::getVoidTy(M.getContext());
-  Type *Int32Ty = IntegerType::getInt32Ty(M.getContext());
-  FunctionType *AssertFnTy = FunctionType::get(VoidTy, {Int32Ty}, false);
-  FunctionCallee AssertFn = M.getOrInsertFunction("__afl_assert_failed", AssertFnTy);
 
   for (auto &F : M) {
 
@@ -248,16 +243,8 @@ bool DirectPreprocess::runOnModule(Module &M) {
             std::string target_file = target.substr(0, pos);
             unsigned int target_line = atoi(target.substr(pos + 1).c_str());
 
-            if (!target_file.compare(filename) && target_line == line) {
+            if (!target_file.compare(filename) && target_line == line) 
               is_target = true;
-              
-              IRBuilder<> IRB(&I);
-              // let target failed
-              auto callInst = IRB.CreateCall(AssertFn, {ConstantInt::get(Int32Ty, 9487)});  
-              callInst->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
-              errs() << "Insert Assertion at " << filename << ":" << line << "\n";
-              
-            }
 
           }
         }

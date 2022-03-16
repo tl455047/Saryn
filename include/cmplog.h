@@ -71,21 +71,22 @@ struct cmpfn_operands {
 
 } __attribute__((packed));
 
-typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
+struct cmp_metadata {
 
-struct cmp_succ_loc {
-  
   u64 ret_addr;
   u32 num_of_succ;
+  s64 distance[4];
   u32 cur_loc[4];
-  
-};
+
+} __attribute__((packed));
+
+typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
 struct cmp_map {
 
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
-  struct cmp_succ_loc loc[CMP_MAP_W];
+  struct cmp_metadata metadata[CMP_MAP_W];
 
 };
 

@@ -90,15 +90,25 @@ const char SanCovLowestStackName[] = "__sancov_lowest_stack";
 static const char *skip_nozero;
 static const char *use_threadsafe_counters;
 
-static cl::opt<bool> ClDirectMode(
-    "direct-mode",
+static cl::opt<bool> ClPCGuardDirectMode(
+    "pc-guard-direct-mode",
     cl::desc("Use aflgo directed instrumentation"),
     cl::Hidden, cl::init(false));
 
-static cl::opt<std::string> ClDirectDistance(
-    "direct-distance",
+static cl::opt<std::string> ClPCGuardDirectTarget(
+    "pc-guard-direct-target",
+    cl::desc("target position"),
+    cl::Hidden);
+
+static cl::opt<std::string> ClPCGuardDirectDistance(
+    "pc-guard-direct-distance",
     cl::desc("target distance"),
     cl::Hidden);
+
+static cl::opt<bool> ClPCGuardSymbolicMode(
+    "pc-guard-symbolic-mode",
+    cl::desc("symbolic additional instrumentation"),
+    cl::Hidden, cl::init(false));
 
 namespace {
 
@@ -179,7 +189,10 @@ class ModuleSanitizerCoverage {
   std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
                                                 Type *Ty);
 
+  void SetCmpMetadata(Instruction &I, std::string name, long val);
   void SetCurLocMetadata(Instruction &I, size_t Idx);
+  void InstrumentTarget(BasicBlock &BB);
+  long GetBasicBlockDistance(BasicBlock &BB);
   void FindInstrumentedBlock(BasicBlock *BB, Instruction &I, 
                              ArrayRef<BasicBlock *> AllBlocks);
   void DeliverCurLoc(BasicBlock *BB, ArrayRef<BasicBlock *> AllBlocks);
@@ -204,6 +217,7 @@ class ModuleSanitizerCoverage {
   FunctionCallee  SanCovTraceDivFunction[2];
   FunctionCallee  SanCovTraceGepFunction;
   FunctionCallee  SanCovTraceSwitchFunction;
+  FunctionCallee  AssertFn;
   GlobalVariable *SanCovLowestStack;
   Type *IntptrTy, *IntptrPtrTy, *Int64Ty, *Int64PtrTy, *Int32Ty, *Int32PtrTy,
       *Int16Ty, *Int8Ty, *Int8PtrTy, *Int1Ty, *Int1PtrTy;
@@ -227,7 +241,8 @@ class ModuleSanitizerCoverage {
   GlobalVariable *AFLMapSize = NULL;
   ConstantInt *   One = NULL;
   ConstantInt *   Zero = NULL;
-
+  
+  std::list<std::string> Targets;
   std::map<std::string, int> DistanceBBMap;
   std::vector<std::string> DistanceBB;
 
@@ -457,16 +472,24 @@ bool ModuleSanitizerCoverage::instrumentModule(
   AFLMapPtr =
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
                          GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
-  if (ClDirectMode) {    
-    if (ClDirectDistance.empty()) {
+  
+  if (ClPCGuardDirectMode) {    
+    
+    if (ClPCGuardDirectDistance.empty()) {
       errs() << "Unable to find distance file.\n";
       return false;
     }
+    
+    if (ClPCGuardDirectTarget.empty()) {
+      errs() << "Unable to find target file.\n";
+      return false;
+    }
+
     AFLMapSize = 
         new GlobalVariable(M, Int32Ty, false, 
                            GlobalValue::ExternalLinkage, 0, "__afl_map_size");
 
-    std::ifstream cf(ClDirectDistance);
+    std::ifstream cf(ClPCGuardDirectDistance);
     if (cf.is_open()) {
 
       std::string line;
@@ -483,11 +506,26 @@ bool ModuleSanitizerCoverage::instrumentModule(
       cf.close();
     } 
     else {
-      errs() << "Unable to find " << ClDirectDistance << "\n";
+      errs() << "Unable to open " << ClPCGuardDirectDistance << "\n";
       return false;
     }
 
+    std::ifstream targetsfile(ClPCGuardDirectTarget);
+    if (!targetsfile.is_open()) {
+      errs() << "Unable to open " << ClPCGuardDirectTarget << "\n";
+      return false;
+    }
+
+    std::string line;
+    while (std::getline(targetsfile, line))
+      Targets.push_back(line);
+    targetsfile.close();
+
+    AssertFn = M.getOrInsertFunction("__afl_assert_failed", 
+                                      FunctionType::get(VoidTy, {Int32Ty}, false));
+
   }
+
   One = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 1);
   Zero = ConstantInt::get(IntegerType::getInt8Ty(Ctx), 0);
 
@@ -1208,8 +1246,18 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
     
-    for (auto &BB : F) 
-      DeliverCurLoc(&BB, AllBlocks);
+    if (ClPCGuardSymbolicMode) {
+      for (auto &BB : F) {
+        DeliverCurLoc(&BB, AllBlocks);
+      }
+    }
+
+    if (ClPCGuardDirectMode) {
+      for (auto &BB : F) {
+        InstrumentTarget(BB);
+      }
+    }
+
   }
 
   return true;
@@ -1371,24 +1419,107 @@ void ModuleSanitizerCoverage::InjectTraceForCmp(
 
 }
 
-void ModuleSanitizerCoverage::SetCurLocMetadata(Instruction &I, size_t Idx) {
+void ModuleSanitizerCoverage::SetCmpMetadata(Instruction &I, std::string name, long val) {
 
   std::vector<Metadata *> MetadataArray;
   MetadataArray.clear();
   MDNode *N;
   
-  if ((N = I.getMetadata("successor.curloc"))) {
+  if ((N = I.getMetadata(name))) {
     for (auto it = N->op_begin(); it != N->op_end(); it++) {
       MetadataArray.push_back(it->get());
     }
   }
   
-  //errs() << "Appending Function Guard Array: " << FunctionGuardArray->getName() << "Idx: " << Idx << "\n";
-  DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, Idx, false), false, 
+  //errs() << name << " " << val << "\n";
+  DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, val, true), true, 
     MDString::get(*C, FunctionGuardArray->getName()));
   MetadataArray.push_back(DIEn);
   N = MDNode::get(*C, MetadataArray);
-  I.setMetadata("successor.curloc", N);
+  I.setMetadata(name, N);
+
+}
+
+void ModuleSanitizerCoverage::InstrumentTarget(BasicBlock &BB) {
+  
+  std::string BBName;
+  for (auto &I : BB) {
+    std::string filename;
+    unsigned line;
+    GetDebugLoc(&I, filename, line);
+
+    if (filename.empty() || line == 0)
+      continue;
+    std::size_t found = filename.find_last_of("/\\");
+    if (found != std::string::npos)
+      filename = filename.substr(found + 1);
+
+    BBName = filename + ":" + std::to_string(line);
+    // find target
+    for (auto &target : Targets) {
+      std::size_t found = target.find_last_of("/\\");
+      if (found != std::string::npos)
+        target = target.substr(found + 1);
+
+      std::size_t pos = target.find_last_of(":");
+      std::string target_file = target.substr(0, pos);
+      unsigned int target_line = atoi(target.substr(pos + 1).c_str());
+
+      if (!target_file.compare(filename) && target_line == line) {
+        MDNode *N = I.getMetadata(BBName);
+        if (!N) {
+          IRBuilder<> IRB(&I);
+          // let target failed
+          auto callInst = IRB.CreateCall(AssertFn, {ConstantInt::get(Int32Ty, 9487)});  
+          ModuleSanitizerCoverage::SetNoSanitizeMetadata(callInst);
+          errs() << "Insert Assertion at " << filename << ":" << line << "\n";
+
+          N = MDNode::get(*C, ConstantAsMetadata::get(ConstantInt::get(*C, APInt(line, 32))));
+          I.setMetadata(BBName, N);
+        }
+      }
+
+    }
+  
+  }
+
+}
+
+long ModuleSanitizerCoverage::GetBasicBlockDistance(BasicBlock &BB) {
+
+  long distance = -1;
+  std::string BBName;
+  for (auto &I : BB) {
+    std::string filename;
+    unsigned line;
+    GetDebugLoc(&I, filename, line);
+
+    if (filename.empty() || line == 0)
+      continue;
+    std::size_t found = filename.find_last_of("/\\");
+    if (found != std::string::npos)
+      filename = filename.substr(found + 1);
+
+    BBName = filename + ":" + std::to_string(line);
+    break;
+  }
+
+  if (!BBName.empty()) {
+    
+    if (find(DistanceBB.begin(), DistanceBB.end(), BBName) != DistanceBB.end()) {
+
+      /* Find distance for BB */
+
+      std::map<std::string,int>::iterator it;
+      for (it = DistanceBBMap.begin(); it != DistanceBBMap.end(); ++it)
+        if (it->first.compare(BBName) == 0)
+          distance = it->second;
+      
+    }
+
+  }
+  
+  return distance;
 
 }
 
@@ -1399,7 +1530,9 @@ void ModuleSanitizerCoverage::FindInstrumentedBlock(BasicBlock *BB, Instruction 
     SuccBB = *it;
     auto BBIt = std::find(AllBlocks.begin(), AllBlocks.end(), SuccBB);
     if (BBIt != AllBlocks.end()) {
-      SetCurLocMetadata(I, std::distance(AllBlocks.begin(), BBIt));
+      SetCmpMetadata(I, "successor.curloc", std::distance(AllBlocks.begin(), BBIt));
+      if (ClPCGuardDirectMode) 
+        SetCmpMetadata(I, "successor.distance", GetBasicBlockDistance(*SuccBB));
     }   
     else 
       FindInstrumentedBlock(SuccBB, I, AllBlocks);   
@@ -1437,38 +1570,9 @@ void ModuleSanitizerCoverage::GetDebugLoc(const Instruction *I, std::string &Fil
 
 void ModuleSanitizerCoverage::InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, 
                                                     LoadInst *MapPtr) {
+  long distance = -1;
   
-  int distance = -1;
-  std::string BBName;
-  for (auto &I : BB) {
-    std::string filename;
-    unsigned line;
-    GetDebugLoc(&I, filename, line);
-
-    if (filename.empty() || line == 0)
-      continue;
-    std::size_t found = filename.find_last_of("/\\");
-    if (found != std::string::npos)
-      filename = filename.substr(found + 1);
-
-    BBName = filename + ":" + std::to_string(line);
-    break;
-  }
-
-  if (!BBName.empty()) {
-    
-    if (find(DistanceBB.begin(), DistanceBB.end(), BBName) != DistanceBB.end()) {
-
-      /* Find distance for BB */
-
-      std::map<std::string,int>::iterator it;
-      for (it = DistanceBBMap.begin(); it != DistanceBBMap.end(); ++it)
-        if (it->first.compare(BBName) == 0)
-          distance = it->second;
-      
-    }
-
-  }
+  distance = GetBasicBlockDistance(BB);
 
   if (distance >= 0) {
 
@@ -1579,7 +1683,7 @@ void ModuleSanitizerCoverage::InjectCoverageAtBlock(Function &F, BasicBlock &BB,
 
     }
     
-    if (ClDirectMode) 
+    if (ClPCGuardDirectMode) 
       InjectDistanceAtBlock(BB, IRB, MapPtr);
 
     // done :)

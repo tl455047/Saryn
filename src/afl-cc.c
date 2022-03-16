@@ -610,22 +610,22 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-targets=%s/BBtargets.txt", obj_path);
+              alloc_printf("-preprocess-targets=/tmp/BBtargets.txt");
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-outdir=%s", obj_path);
+              alloc_printf("-preprocess-outdir=/tmp");
       
       }
       else {
 
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-targets=%s/BBtargets.txt", direct_dir);
+              alloc_printf("-preprocess-targets=%s/BBtargets.txt", direct_dir);
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-outdir=%s", direct_dir);
+              alloc_printf("-preprocess-outdir=%s", direct_dir);
       
       }
 
@@ -682,23 +682,39 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           if (direct_mode) {
             
             cc_params[cc_par_cnt++] = "-mllvm";
-            cc_params[cc_par_cnt++] = "-direct-mode=1";
-            cc_params[cc_par_cnt++] = "-mllvm";
+            cc_params[cc_par_cnt++] = "-pc-guard-direct-mode=1";
 
             u8 *direct_dir = getenv("AFL_DIRECT_DIR");
 
             if (!direct_dir) {
               
+              cc_params[cc_par_cnt++] = "-mllvm";
               cc_params[cc_par_cnt++] = 
-                alloc_printf("-direct-distance=%s/distance.cfg.txt", obj_path);
+                alloc_printf("-pc-guard-direct-distance=/tmp/distance.cfg.txt");
+              
+              cc_params[cc_par_cnt++] = "-mllvm";
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-pc-guard-direct-target=/tmp/BBtargets.txt");
             
             }
             else {
               
+              cc_params[cc_par_cnt++] = "-mllvm";
               cc_params[cc_par_cnt++] = 
-                alloc_printf("-direct-distance=%s/distance.cfg.txt", direct_dir);
+                alloc_printf("-pc-guard-direct-distance=%s/distance.cfg.txt", direct_dir);
+              
+              cc_params[cc_par_cnt++] = "-mllvm";
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-pc-guard-direct-target=%s/BBtargets.txt", direct_dir);
 
             }
+
+          }
+
+          if (symbolic_mode) {
+
+            cc_params[cc_par_cnt++] = "-mllvm";
+            cc_params[cc_par_cnt++] = "-pc-guard-symbolic-mode=1";
 
           }
 

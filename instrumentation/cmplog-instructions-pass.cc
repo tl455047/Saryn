@@ -80,6 +80,23 @@ class CmpLogInstructions : public ModulePass {
 
  private:
   bool hookInstrs(Module &M);
+  void instrumentCurLoc(Module &M, IRBuilder <> &IRB, Instruction *cmpInst);
+  void instrumentDistance(Module &M, IRBuilder <> &IRB, Instruction *cmpInst);
+  void instrumentMetadata(Module &M, IRBuilder<> &IRB, Instruction *cmpInst);
+
+  Type *       VoidTy; 
+  IntegerType *Int8Ty;
+  IntegerType *Int16Ty; 
+  IntegerType *Int32Ty;
+  IntegerType *Int64Ty;
+  IntegerType *Int128Ty;
+  Type *      IntptrTy;
+  Type *      Int32PtrTy;
+  Type *      Int64PtrTy;
+
+  GlobalVariable *AFLLocPtr;
+  GlobalVariable *AFLDisPtr;
+  GlobalVariable *AFLNumOfSucc;
 
 };
 
@@ -107,16 +124,17 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   std::vector<Instruction *> icomps;
   LLVMContext &              C = M.getContext();
 
-  Type *       VoidTy = Type::getVoidTy(C);
-  IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-  IntegerType *Int16Ty = IntegerType::getInt16Ty(C);
-  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-  IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
-  IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
+  VoidTy = Type::getVoidTy(C);
+  Int8Ty = IntegerType::getInt8Ty(C);
+  Int16Ty = IntegerType::getInt16Ty(C);
+  Int32Ty = IntegerType::getInt32Ty(C);
+  Int64Ty = IntegerType::getInt64Ty(C);
+  Int128Ty = IntegerType::getInt128Ty(C);
 
-  Type *      IntptrTy = Type::getIntNTy(C, M.getDataLayout().getPointerSizeInBits());
+  IntptrTy = Type::getIntNTy(C, M.getDataLayout().getPointerSizeInBits());
   IRBuilder<> _IRB(C);
-  Type *      Int32PtrTy = PointerType::getUnqual(_IRB.getInt32Ty());
+  Int32PtrTy = PointerType::getUnqual(_IRB.getInt32Ty());
+  Int64PtrTy = PointerType::getUnqual(_IRB.getInt64Ty());
 
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee
@@ -239,12 +257,16 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   /* Used for storing each cmp instruction successors' CurLoc,
      since we don't want to break the cmp_hook interface. */
   
-  ArrayType *ArrayTy = ArrayType::get(Int32Ty, 32);
-  GlobalVariable *AFLLocPtr = new GlobalVariable(M, ArrayTy, false,
+  AFLLocPtr = new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
       GlobalValue::ExternalLinkage, 0, "__afl_loc_ptr");
   
+  AFLDisPtr = new GlobalVariable(M, PointerType::get(Int64Ty, 0), false,
+      GlobalValue::ExternalLinkage, 0, "__afl_dis_ptr");
   
-  
+  AFLNumOfSucc = 
+        new GlobalVariable(M, Int32Ty, false, 
+                           GlobalValue::ExternalLinkage, 0, "__afl_num_of_succ");
+
   Constant *Null = Constant::getNullValue(PointerType::get(Int8Ty, 0));
 
   /* iterate over all functions, bbs and instruction and add suitable calls */
@@ -539,72 +561,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
         if (!skip) {
           
-          /* get FunctionGuardArray and index for all successors, 
-            we want to deliver all successors' curLoc to cmplog_hook */
-          int cnt = 0;
-          size_t Idx;
-          GlobalVariable *FunctionGuardArray;
-          MDNode *N;
-          if ((N = cmpInst->getMetadata("successor.curloc"))) {
-            
-            for (auto it = N->op_begin(); it != N->op_end(); it++) {
-            
-              cnt++;
-            
-            }
-            // skip cmp which contains only one successor
-            if (cnt <= 4) {
-              
-              /* Load LOC pointer */
-              Value *LocPtr = IRB.CreateIntToPtr(
-                  IRB.CreateAdd(IRB.CreatePointerCast(AFLLocPtr, Int32PtrTy),
-                                ConstantInt::get(Int32Ty, 0)),
-                  Int32PtrTy);
-
-              /* Store number of successors to LOC pointer[0] */
-              StoreInst *StoreCtx = IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), LocPtr);
-              StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-              int i = 1;
-              for (auto it = N->op_begin(); it != N->op_end(); it++) {
-                
-                Metadata *Meta = it->get();
-                DIEnumerator *DIEn;
-                
-                if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
-                  
-                  if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
-                    
-                    /* Get Guard pointer */
-                    Idx = DIEn->getValue().getSExtValue();
-                    Value *GuardPtr = IRB.CreateIntToPtr(
-                          IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
-                                        ConstantInt::get(IntptrTy, Idx * 4)),
-                          Int32PtrTy);
-
-                    /* Load CurLoc */
-                    LoadInst *CurLoc = IRB.CreateLoad(Int32Ty, GuardPtr);
-                    CurLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-                    /* Load LOC pointer */
-                    LocPtr = IRB.CreateIntToPtr(
-                        IRB.CreateAdd(IRB.CreatePointerCast(AFLLocPtr, Int32PtrTy),
-                                      ConstantInt::get(Int32Ty, i * 4)),
-                        Int32PtrTy);
-
-                    /* Store CurLoc */
-                    StoreCtx = IRB.CreateStore(CurLoc, LocPtr);
-                    StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-                    //errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
-                  }
-
-                }
-                i++;
-              }
-              //errs() << "\n";
-            }
-                 
-          }
+          instrumentMetadata(M, IRB, cmpInst);
 
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
@@ -689,6 +646,121 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
     return true;
   else
     return false;
+
+}
+
+void CmpLogInstructions::instrumentDistance(Module &M, IRBuilder <> &IRB, Instruction *cmpInst) {
+
+  long distance;
+  GlobalVariable *FunctionGuardArray;
+  int i = 0;
+
+  MDNode *N = cmpInst->getMetadata("successor.distance");
+
+  for (auto it = N->op_begin(); it != N->op_end(); it++) {
+    
+    Metadata *Meta = it->get();
+    DIEnumerator *DIEn;
+    
+    if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+      
+      if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
+      
+        distance = DIEn->getValue().getSExtValue();
+        
+        /* Load Dis pointer */
+        
+        Value *DisPtr = IRB.CreateGEP(Int64Ty, AFLDisPtr, ConstantInt::get(Int64Ty, i++));
+
+        /* Store CurLoc */
+        StoreInst *StoreCtx = IRB.CreateStore(ConstantInt::get(Int64Ty, distance), DisPtr);
+        StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
+        //errs() << FunctionGuardArray->getName() << " dis: " << DIEn->getValue() << "\n";    
+      
+      }
+
+    }
+
+  }
+  //errs() << "\n";
+
+}
+
+void CmpLogInstructions::instrumentCurLoc(Module &M, IRBuilder <> &IRB, Instruction *cmpInst) {
+  
+  size_t Idx;
+  GlobalVariable *FunctionGuardArray;
+  int i = 0;
+  
+  MDNode *N = cmpInst->getMetadata("successor.curloc");
+  
+  for (auto it = N->op_begin(); it != N->op_end(); it++) {
+    
+    Metadata *Meta = it->get();
+    DIEnumerator *DIEn;
+    
+    if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+      
+      if ((FunctionGuardArray = M.getGlobalVariable(DIEn->getName(), true))) {
+        
+        /* Get Guard pointer */
+        Idx = DIEn->getValue().getZExtValue();
+        Value *GuardPtr = IRB.CreateIntToPtr(
+              IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                            ConstantInt::get(IntptrTy, Idx * 4)),
+              Int32PtrTy);
+
+        /* Load CurLoc */
+        LoadInst *CurLoc = IRB.CreateLoad(Int32Ty, GuardPtr);
+        CurLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
+
+        /* Load LOC pointer */
+
+        Value *LocPtr = IRB.CreateGEP(Int32Ty, AFLLocPtr, ConstantInt::get(Int32Ty, i++));
+
+        /* Store CurLoc */
+        StoreInst *StoreCtx = IRB.CreateStore(CurLoc, LocPtr);
+        StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
+        //errs() << FunctionGuardArray->getName() << " : " << DIEn->getValue() << "\n";
+      }
+
+    }
+
+  }
+  //errs() << "\n";
+        
+}
+
+void CmpLogInstructions::instrumentMetadata(Module &M, IRBuilder <> &IRB, Instruction *cmpInst) {
+
+  int cnt = 0;
+  MDNode *N;
+
+  if ((N = cmpInst->getMetadata("successor.curloc"))) {
+    
+    for (auto it = N->op_begin(); it != N->op_end(); it++) {
+    
+      cnt++;
+    
+    }
+
+    if (cnt <= 4) {
+      
+      /* Store number of successors */
+      StoreInst *StoreCtx = IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), AFLNumOfSucc);
+      StoreCtx->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(M.getContext(), None));
+    
+      instrumentCurLoc(M, IRB, cmpInst);
+
+      if ((N = cmpInst->getMetadata("successor.distance"))) {
+    
+        instrumentDistance(M, IRB, cmpInst);
+
+      }
+
+    }
+
+  }
 
 }
 

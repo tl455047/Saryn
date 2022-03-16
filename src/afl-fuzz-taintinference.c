@@ -202,7 +202,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->hits = hits;
     new_info->inst_type = c_map->headers[id].type;
     new_info->type = type;
-    new_info->ret_addr = c_map->loc[id].ret_addr;
+    new_info->ret_addr = c_map->metadata[id].ret_addr;
 
     new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
@@ -1665,9 +1665,9 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     
     // skip the instruction which all successor are already covered  
     is_covered = 1;
-    for (u32 j = 0; j < afl->shm.cmp_map->loc[i].num_of_succ; j++) {
+    for (u32 j = 0; j < afl->shm.cmp_map->metadata[i].num_of_succ; j++) {
       
-      idx = afl->shm.cmp_map->loc[j].cur_loc[j];
+      idx = afl->shm.cmp_map->metadata[j].cur_loc[j];
       
       if (afl->virgin_bits[idx])
         is_covered = 0;
