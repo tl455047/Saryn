@@ -1473,10 +1473,10 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;
 #endif
   u32 hshape;
-  u64 s_v0, s_v1;
+  /*u64 s_v0, s_v1;
   u8  s_v0_fixed = 1, s_v1_fixed = 1;
   u8  s_v0_inc = 1, s_v1_inc = 1;
-  u8  s_v0_dec = 1, s_v1_dec = 1;
+  u8  s_v0_dec = 1, s_v1_dec = 1;*/
   
   hshape = SHAPE_BYTES(afl->shm.cmp_map->headers[i].shape);
 
@@ -1503,7 +1503,7 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
     orig_o = &afl->orig_cmp_map->log[i][j];
 
     // loop detection code
-    if (j == 0) {
+    /*if (j == 0) {
 
       s_v0 = o->v0;
       s_v1 = o->v1;
@@ -1519,7 +1519,7 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       s_v0 = o->v0;
       s_v1 = o->v1;
 
-    }
+    }*/
 
     for (u32 k = 0; k < j; ++k) {
 
@@ -1589,12 +1589,12 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   }
 
   // is this really useful ???
-  if (((s_v0_fixed && s_v1_inc) || (s_v1_fixed && s_v0_inc) ||
+  /*if (((s_v0_fixed && s_v1_inc) || (s_v1_fixed && s_v0_inc) ||
                     (s_v0_fixed && s_v1_dec) || (s_v1_fixed && s_v0_dec))) {
     //ignore loop
     afl->pass_stats[TAINT_CMP][i].total = afl->pass_stats[TAINT_CMP][i].faileds = 0xff;
 
-  }
+  }*/
 
 }
 
