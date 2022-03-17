@@ -234,6 +234,9 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
   }
 
+  if (afl->tainted_len < 20)
+    return 1;
+  
   afl->tainted_seed[TAINT_CMP]++;
 
   setup_symbolic_testcase(afl, buf, len);

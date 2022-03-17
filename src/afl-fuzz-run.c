@@ -583,6 +583,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
   DIR *          sd;
   struct dirent *sd_ent;
+  u64            orig_hit_cnt = 0, new_hit_cnt = 0;
   u32            sync_cnt = 0, synced = 0, entries = 0;
   u8             path[PATH_MAX + 1 + NAME_MAX];
 
@@ -607,6 +608,12 @@ void sync_fuzzers(afl_state_t *afl) {
     if (sd_ent->d_name[0] == '.' || !strcmp(afl->sync_id, sd_ent->d_name)) {
 
       continue;
+
+    }
+
+    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e", 3)) {
+
+      orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
     }
 
@@ -761,6 +768,13 @@ void sync_fuzzers(afl_state_t *afl) {
       for (m = 0; m < n; m++)
         free(namelist[m]);
     free(namelist);
+
+    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e", 3)) {
+
+      new_hit_cnt = afl->queued_items + afl->saved_crashes;
+      afl->stage_finds[STAGE_SYMBOLIC] += new_hit_cnt - orig_hit_cnt;
+    
+    }
 
   }
 
