@@ -2820,7 +2820,8 @@ havoc_stage:
   }
   // we should not apply this analysis for every seed.
   if (afl->symbolic_mode && afl->ready_for_symbolic 
-        && (u32)len <= afl->cmplog_max_filesize) {
+        && (u32)len <= afl->cmplog_max_filesize
+        && !afl->queue_cur->taint_cur[TAINT_CMP]) {
     
     invoke_symbolic(afl, out_buf, in_buf, len);
     

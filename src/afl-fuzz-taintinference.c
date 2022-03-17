@@ -1670,7 +1670,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
       
       idx = afl->shm.cmp_map->metadata[i].cur_loc[j];
       
-      if (afl->virgin_bits[idx])
+      if (afl->virgin_bits[idx] == 0xFF)
         is_covered = 0;
 
     }
