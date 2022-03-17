@@ -1443,8 +1443,9 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
       cnt++;
 
     }
-    // write selected inst.'s returne address to s2e project dir
-    queue_fn = alloc_printf("%s/ret-addr-%u", afl->symbolic_path, cnt);
+    
+    queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ret-addr-%u", afl->out_dir, 
+                                                      afl->queue_cur->id, cnt);
     f = create_ffile(queue_fn);
 
     for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
