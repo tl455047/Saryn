@@ -1668,13 +1668,13 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     is_covered = 1;
     for (u32 j = 0; j < afl->shm.cmp_map->metadata[i].num_of_succ; j++) {
       
-      idx = afl->shm.cmp_map->metadata[j].cur_loc[j];
+      idx = afl->shm.cmp_map->metadata[i].cur_loc[j];
       
       if (afl->virgin_bits[idx])
         is_covered = 0;
 
     }
-    
+
     if (is_covered) {
       
       afl->skip_inst++;
