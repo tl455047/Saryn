@@ -105,11 +105,6 @@ static cl::opt<std::string> ClPCGuardDirectDistance(
     cl::desc("target distance"),
     cl::Hidden);
 
-static cl::opt<bool> ClPCGuardSymbolicMode(
-    "pc-guard-symbolic-mode",
-    cl::desc("symbolic additional instrumentation"),
-    cl::Hidden, cl::init(false));
-
 namespace {
 
 SanitizerCoverageOptions OverrideFromCL(SanitizerCoverageOptions Options) {
@@ -189,13 +184,8 @@ class ModuleSanitizerCoverage {
   std::pair<Value *, Value *> CreateSecStartEnd(Module &M, const char *Section,
                                                 Type *Ty);
 
-  void SetCmpMetadata(Instruction &I, std::string name, long val);
-  void SetCurLocMetadata(Instruction &I, size_t Idx);
   void InstrumentTarget(BasicBlock &BB);
   long GetBasicBlockDistance(BasicBlock &BB);
-  void FindInstrumentedBlock(BasicBlock *BB, Instruction &I, 
-                             ArrayRef<BasicBlock *> AllBlocks);
-  void DeliverCurLoc(BasicBlock *BB, ArrayRef<BasicBlock *> AllBlocks);
   void GetDebugLoc(const Instruction *I, std::string &Filename,
                       unsigned &Line);
   void InjectDistanceAtBlock(BasicBlock &BB, IRBuilder<> &IRB, LoadInst *MapPtr);
@@ -1246,12 +1236,6 @@ bool ModuleSanitizerCoverage::InjectCoverage(Function &             F,
     for (size_t i = 0, N = AllBlocks.size(); i < N; i++)
       InjectCoverageAtBlock(F, *AllBlocks[i], i, IsLeafFunc);
     
-    if (ClPCGuardSymbolicMode) {
-      for (auto &BB : F) {
-        DeliverCurLoc(&BB, AllBlocks);
-      }
-    }
-
     if (ClPCGuardDirectMode) {
       for (auto &BB : F) {
         InstrumentTarget(BB);
@@ -1419,27 +1403,6 @@ void ModuleSanitizerCoverage::InjectTraceForCmp(
 
 }
 
-void ModuleSanitizerCoverage::SetCmpMetadata(Instruction &I, std::string name, long val) {
-
-  std::vector<Metadata *> MetadataArray;
-  MetadataArray.clear();
-  MDNode *N;
-  
-  if ((N = I.getMetadata(name))) {
-    for (auto it = N->op_begin(); it != N->op_end(); it++) {
-      MetadataArray.push_back(it->get());
-    }
-  }
-  
-  //errs() << name << " " << val << "\n";
-  DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, val, true), true, 
-    MDString::get(*C, FunctionGuardArray->getName()));
-  MetadataArray.push_back(DIEn);
-  N = MDNode::get(*C, MetadataArray);
-  I.setMetadata(name, N);
-
-}
-
 void ModuleSanitizerCoverage::InstrumentTarget(BasicBlock &BB) {
   
   std::string BBName;
@@ -1523,34 +1486,7 @@ long ModuleSanitizerCoverage::GetBasicBlockDistance(BasicBlock &BB) {
 
 }
 
-void ModuleSanitizerCoverage::FindInstrumentedBlock(BasicBlock *BB, Instruction &I,
-                                                    ArrayRef<BasicBlock *> AllBlocks) {
-  BasicBlock *SuccBB;
-  for(auto it = succ_begin(BB); it != succ_end(BB); it++) {
-    SuccBB = *it;
-    auto BBIt = std::find(AllBlocks.begin(), AllBlocks.end(), SuccBB);
-    if (BBIt != AllBlocks.end()) {
-      SetCmpMetadata(I, "successor.curloc", std::distance(AllBlocks.begin(), BBIt));
-      if (ClPCGuardDirectMode) 
-        SetCmpMetadata(I, "successor.distance", GetBasicBlockDistance(*SuccBB));
-    }   
-    else 
-      FindInstrumentedBlock(SuccBB, I, AllBlocks);   
-  
-  }
-}
 
-void ModuleSanitizerCoverage::DeliverCurLoc(BasicBlock *BB, 
-                                            ArrayRef<BasicBlock *> AllBlocks) {
-  if (Options.TracePCGuard) {
-    for(auto &I : *BB) {
-      CmpInst *selectcmpInst = nullptr;
-      if ((selectcmpInst = dyn_cast<CmpInst>(&I))) {
-        FindInstrumentedBlock(BB, I, AllBlocks);
-      }
-    }
-  }
-}
 
 void ModuleSanitizerCoverage::GetDebugLoc(const Instruction *I, std::string &Filename,
                         unsigned &Line) {

@@ -202,7 +202,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->hits = hits;
     new_info->inst_type = c_map->headers[id].type;
     new_info->type = type;
-    new_info->ret_addr = c_map->metadata[id].ret_addr;
+    new_info->ret_addr = c_map->ret_addr[id];
 
     new_info->taint = add_tainted(new_info->taint, ofs, 1);
 
@@ -1468,9 +1468,6 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
 void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   
   struct cmp_operands *o = NULL, *orig_o = NULL;
-  
-  u8 covered = is_covered(afl, i);
-
 #ifdef WORD_SIZE_64
   u32  is_n = 0;
   u128 s128_v0 = 0, s128_v1 = 0, orig_s128_v0 = 0, orig_s128_v1 = 0;

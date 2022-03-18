@@ -58,7 +58,6 @@ static u8   debug;
 static u8   cwd[4096];
 static u8   cmplog_mode;
 static u8   memlog_mode;
-static u8   symbolic_mode;
 static u8   direct_mode;
 static u8   direct_preprocess_mode;
 u8          use_stdin;                                             /* dummy */
@@ -711,13 +710,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           }
 
-          if (symbolic_mode) {
-
-            cc_params[cc_par_cnt++] = "-mllvm";
-            cc_params[cc_par_cnt++] = "-pc-guard-symbolic-mode=1";
-
-          }
-
         }
 
   #endif
@@ -756,33 +748,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
     if (cmplog_mode) {
 
       if (lto_mode && !have_c) {
-
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
-        cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/cmplog-routines-pass.so", obj_path);
-
-      } else {
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-instructions-pass.so", obj_path);
-
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] = "-load";
-        cc_params[cc_par_cnt++] = "-Xclang";
-        cc_params[cc_par_cnt++] =
-            alloc_printf("%s/cmplog-routines-pass.so", obj_path);
-
-      }
-
-    }
-
-    if (symbolic_mode) {
-      
-       if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
             "-Wl,-mllvm=-load=%s/cmplog-instructions-pass.so", obj_path);
@@ -2241,10 +2206,6 @@ int main(int argc, char **argv, char **envp) {
   memlog_mode = getenv("AFL_MEMLOG") || getenv("AFL_LLVM_MEMLOG");
   if (!be_quiet && memlog_mode)
     printf("MemLog mode\n");
-
-  symbolic_mode = getenv("AFL_SYMBOLIC") || getenv("AFL_LLVM_SYMBOLIC");
-  if (!be_quiet && symbolic_mode)
-    printf("Symbolic mode\n");
 
   direct_mode = getenv("AFL_DIRECT") || getenv("AFL_LLVM_DIRECT");
   if (!be_quiet && direct_mode)
