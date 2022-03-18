@@ -1470,12 +1470,15 @@ static u8 is_covered(afl_state_t *afl, u32 i) {
   u8 is_covered = 1;
   u32 idx;
 
+  if (!afl->shm.cmp_map->metadata[i].num_of_succ)
+    is_covered = 0;
+
   for (u32 j = 0; j < afl->shm.cmp_map->metadata[i].num_of_succ; j++) {
     
     idx = afl->shm.cmp_map->metadata[i].cur_loc[j];
     
-    if (afl->virgin_bits[idx] == 0xFF || afl->virgin_bits[idx] == 0xFE)
-      is_covered = 0;
+    if (afl->virgin_bits[idx] == 0xFF)
+        is_covered = 0;
 
   }
 
@@ -2097,7 +2100,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   
   // reset state info
   afl->tainted_len = 0;
-  afl->skip_inst = 0;
+
   memset(afl->ht_tainted, 0, MEMLOG_HOOK_NUM * sizeof(u32));
   
   if (mode == TAINT_CMP) {

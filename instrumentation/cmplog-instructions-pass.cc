@@ -744,7 +744,7 @@ void CmpLogInstructions::instrumentMetadata(Module &M, IRBuilder <> &IRB, Instru
     
     }
 
-    if (cnt <= 4) {
+    if (cnt <= 16) {
       
       /* Store number of successors */
       StoreInst *StoreCtx = IRB.CreateStore(ConstantInt::get(Int32Ty, cnt), AFLNumOfSucc);

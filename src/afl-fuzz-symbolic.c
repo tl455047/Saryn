@@ -57,6 +57,7 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
 
   if (afl->shm.cmplog_mode) {
     
+    afl->selected_inst = 0;
     // write selected inst.'s returne address to s2e project dir
     fn = alloc_printf("%s/ret_addr", afl->symbolic_path);
     f = create_ffile(fn);
@@ -69,7 +70,8 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
         continue;
 
       fprintf(f, "%llx\n", tmp[i]->ret_addr);
-
+      afl->selected_inst++;
+      
     }
 
     fclose(f);
