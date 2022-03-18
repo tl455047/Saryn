@@ -1464,28 +1464,6 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
   
 }
 
-
-static u8 is_covered(afl_state_t *afl, u32 i) {
-
-  u8 is_covered = 1;
-  u32 idx;
-
-  if (!afl->shm.cmp_map->metadata[i].num_of_succ)
-    is_covered = 0;
-
-  for (u32 j = 0; j < afl->shm.cmp_map->metadata[i].num_of_succ; j++) {
-    
-    idx = afl->shm.cmp_map->metadata[i].cur_loc[j];
-    
-    if (afl->virgin_bits[idx] == 0xFF)
-        is_covered = 0;
-
-  }
-
-  return is_covered;
-
-}
-
 // cmplog mode instruction inference
 void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   
@@ -1577,18 +1555,14 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
 
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        
-        if (!covered)
-          add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs);
+        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs);
           
       }
       else if (s128_v1 != orig_s128_v1) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        
-        if (!covered)
-          add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs);
+        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs);
 
       }
 
@@ -1600,8 +1574,6 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      
-      if (!covered)
         add_cmp_tainted_info(afl, i, j, CMP_V0, ofs);
      
     }
@@ -1610,8 +1582,6 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      
-      if (!covered)
         add_cmp_tainted_info(afl, i, j, CMP_V1, ofs);
       
     }

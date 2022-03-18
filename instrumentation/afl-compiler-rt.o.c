@@ -121,11 +121,6 @@ struct cmp_map *__afl_cmp_map_backup;
 struct mem_map *__afl_mem_map;
 struct mem_map *__afl_mem_map_backup;
 
-s64 __afl_dis_ptr[32];
-u32 __afl_loc_ptr[32];
-
-u32 __afl_num_of_succ;
-
 /* Child pid? */
 
 static s32 child_pid;
@@ -1601,16 +1596,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
     hits = 0;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 0;
-
-    for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
     
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1642,15 +1629,7 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 1;
 
-    for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
-    
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1690,15 +1669,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 3;
 
-    for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
-    
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1738,15 +1709,7 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 7;
 
-   for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
-    
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1791,15 +1754,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = size;
 
-    for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
-    
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1844,15 +1799,7 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 15;
 
-    for (u32 i = 0; i < __afl_num_of_succ; i++) {
-
-      __afl_cmp_map->metadata[k].cur_loc[i] = __afl_loc_ptr[i];
-      __afl_cmp_map->metadata[k].distance[i] = __afl_dis_ptr[i];
-    
-    }
-    __afl_cmp_map->metadata[k].num_of_succ = __afl_num_of_succ;
-    __afl_cmp_map->metadata[k].ret_addr = (uintptr_t)__builtin_return_address(0);
-    __afl_num_of_succ = 0;
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1972,6 +1919,8 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
     }
 
+    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    
     __afl_cmp_map->headers[k].attribute = 1;
 
     hits &= CMP_MAP_H - 1;

@@ -50,7 +50,7 @@ struct cmp_header {
   unsigned attribute : 4;
   unsigned overflow : 1;
   unsigned reserved : 4;
-
+  
 } __attribute__((packed));
 
 struct cmp_operands {
@@ -71,23 +71,14 @@ struct cmpfn_operands {
 
 } __attribute__((packed));
 
-struct cmp_metadata {
-
-  u64 ret_addr;
-  u32 num_of_succ;
-  s64 distance[4];
-  u32 cur_loc[4];
-
-} __attribute__((packed));
-
 typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
 struct cmp_map {
 
   struct cmp_header   headers[CMP_MAP_W];
   struct cmp_operands log[CMP_MAP_W][CMP_MAP_H];
-  struct cmp_metadata metadata[CMP_MAP_W];
-
+  u64                 ret_addr[CMP_MAP_W];
+  
 };
 
 /* Execs the child */
