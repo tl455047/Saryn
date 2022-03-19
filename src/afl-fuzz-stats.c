@@ -692,10 +692,8 @@ void show_stats(afl_state_t *afl) {
 
   if (afl->symbolic_mode && !afl->ready_for_symbolic && !afl->ready_for_sync
     && (u64)(get_cur_time() - afl->s2e_usr_time) >= SYMBOLIC_TIMEOUT) {
-
-      u8 *pid = getenv(S2E_ENV_VAR);
-      
-      if (pid) {
+ 
+      if (getenv(S2E_ENV_VAR)) {
 
         kill(atoi(pid), afl->fsrv.kill_signal);
 

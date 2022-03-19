@@ -457,9 +457,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
-  len = afl->queue_cur->len;
-
   if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz
       && !afl->queue_cur->constraints) {
       
@@ -468,9 +465,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
     afl->queue_cur->constraints = 
       get_constraint(NULL, in_buf, orig_buf, len);
 
-    ck_free(orig_buf);
-
   }
+  
+  orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
+  len = afl->queue_cur->len;
 
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
