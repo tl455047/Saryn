@@ -2919,18 +2919,6 @@ retry_splicing:
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
 
-  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
-    
-    afl->queue_cur->constraints_fuzz = 0;
-    
-    taint_free(afl->queue_cur->constraints);
-    afl->queue_cur->constraints = 0;
-
-    ck_free(afl->queue_cur->orig_buf);
-    afl->queue_cur->orig_buf = 0;
-
-  }
-
   afl->splicing_with = -1;
 
   /* Update afl->pending_not_fuzzed count if we made it through the calibration
