@@ -530,7 +530,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->mother = afl->queue_cur;
 
   if (afl->syncing_party && afl->symbolic_mode &&
-      !strncmp(afl->syncing_party, "s2e", 3)) {
+      !strncmp(afl->syncing_party, "s2e-out-", 8)) {
       
     u32 src_id = atoi(strrchr(afl->syncing_party, '-') + 1);
 
