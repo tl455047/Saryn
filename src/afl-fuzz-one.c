@@ -462,9 +462,12 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
     
-    afl->queue_cur->orig_buf = queue_testcase_get(afl, afl->queue_cur->mother);
-    afl->queue_cur->constraints = 
-      get_constraint(NULL, in_buf, afl->queue_cur->orig_buf, len);
+    if (!afl->queue_cur->orig_buf)
+      afl->queue_cur->orig_buf = queue_testcase_get(afl, afl->queue_cur->mother);
+    
+    if (!afl->queue_cur->constraints)
+      afl->queue_cur->constraints = 
+        get_constraint(NULL, in_buf, afl->queue_cur->orig_buf, len);
 
   }
 
