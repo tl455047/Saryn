@@ -2206,7 +2206,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
       // taint failed
       afl->queue_cur->taint_failed[mode]++;
 
-      return 0;
+      return 1;
     
     }
     // Construct tainted_info list
@@ -2235,7 +2235,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   else if(afl->queue_cur->taint_failed[mode]) {
     
     // taint failed
-    return 0;
+    return 1;
 
   }
 
