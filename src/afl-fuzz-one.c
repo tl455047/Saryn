@@ -2922,10 +2922,12 @@ abandon_entry:
   if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
     
     afl->queue_cur->constraints_fuzz = 0;
-
+    
     taint_free(afl->queue_cur->constraints);
+    afl->queue_cur->constraints = 0;
 
     ck_free(afl->queue_cur->orig_buf);
+    afl->queue_cur->orig_buf = 0;
 
   }
 
