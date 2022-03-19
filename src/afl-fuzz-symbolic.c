@@ -334,6 +334,8 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
     setenv(S2E_ENV_VAR, fn, 1);
     
+    afl->s2e_usr_time = get_cur_time();
+
     ck_free(fn);
 
   }
@@ -349,9 +351,4 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // cooperate with, and s2e does not handle symbolic pointer well currently.
   return 0;
 
-}
-
-void check_symbolic_stuck(afl_state_t *afl) {
-
-  
 }

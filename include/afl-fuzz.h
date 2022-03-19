@@ -721,6 +721,7 @@ typedef struct afl_state {
   u8               ready_for_sync;
   u8 *             s2e_out_dir;
   u64              s2e_usr_time;
+  u32              s2e_hang;
 
   /* Directed */
   u8               direct_mode;

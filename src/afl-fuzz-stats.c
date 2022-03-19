@@ -690,6 +690,21 @@ void show_stats(afl_state_t *afl) {
 
   SAYF("\n%s\n", banner);
 
+  if (afl->symbolic_mode && !afl->ready_for_symbolic && !afl->ready_for_sync
+    && (u64)(get_cur_time() - afl->s2e_usr_time) >= SYMBOLIC_TIMEOUT) {
+
+      u8 *pid = getenv(S2E_ENV_VAR);
+      
+      if (pid) {
+
+        kill(atoi(pid), afl->fsrv.kill_signal);
+
+        afl->s2e_hang += 1;
+
+      }
+
+  }
+
   /* "Handy" shortcuts for drawing boxes... */
 
 #define bSTG bSTART cGRA
@@ -1227,7 +1242,7 @@ void show_stats(afl_state_t *afl) {
     }
     SAYF(bV bSTOP " taint mode  : "  cRST "%-36s " bSTG bV"\n", tmp); 
     
-    sprintf(tmp, "%d/%d/%d", afl->tainted_seed[TAINT_CMP], afl->tainted_seed[TAINT_MEM], afl->queued_items);
+    sprintf(tmp, "%d/%d/%d", afl->tainted_seed[TAINT_CMP], afl->s2e_hang, afl->queued_items);
     SAYF(bV bSTOP " taint seeds : "  cRST "%-36s " bSTG bV"\n", tmp);
 
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->selected_inst);
