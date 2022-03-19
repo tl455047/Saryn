@@ -244,7 +244,6 @@ struct queue_entry {
   struct tainted       *constraints;    /* constraint part                  */ 
   u8                    constraints_fuzz;
   struct queue_entry *mother;           /* queue entry this based on        */
-  u8                   *orig_buf;       /* seed input used to symbolic      */
   double distance;                      /* direct mode distance             */
   
 };

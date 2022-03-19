@@ -460,14 +460,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
 
-  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
-    
-    if (!afl->queue_cur->orig_buf)
-      afl->queue_cur->orig_buf = queue_testcase_get(afl, afl->queue_cur->mother);
-    
-    if (!afl->queue_cur->constraints)
-      afl->queue_cur->constraints = 
-        get_constraint(NULL, in_buf, afl->queue_cur->orig_buf, len);
+  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz
+      && !afl->queue_cur->constraints) {
+      
+    u8 *orig_buf = queue_testcase_get(afl, afl->queue_cur->mother);
+  
+    afl->queue_cur->constraints = 
+      get_constraint(NULL, in_buf, orig_buf, len);
+
+    ck_free(orig_buf);
 
   }
 
@@ -2780,8 +2781,8 @@ havoc_stage:
 
     if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
       
-      set_constraint(afl->queue_cur->constraints, out_buf, 
-        afl->queue_cur->orig_buf, len);
+      set_constraint(afl->queue_cur->constraints, out_buf, in_buf, 
+          MIN((u32)temp_len, (u32)len));
 
     }
 
