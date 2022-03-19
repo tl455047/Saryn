@@ -245,7 +245,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   u32 i;
   for(i = 0;; i++) {
     
-    fn = alloc_printf("%s/s2e-out-%d", afl->sync_dir, i);
+    fn = alloc_printf("%s/s2e-out-%d", afl->sync_dir, afl->queue_cur->id);
     
     d = opendir(fn);
     

@@ -241,8 +241,10 @@ struct queue_entry {
   u32                   taint_cur[TAINT_MODE];
                                         /* failed to taint                  */
   u8                    taint_failed[TAINT_MODE];
+  struct tainted       *constraints;    /* constraint part                  */ 
+  u8                    constraints_fuzz;
   struct queue_entry *mother;           /* queue entry this based on        */
-
+  u8                   *orig_buf;       /* seed input used to symbolic      */
   double distance;                      /* direct mode distance             */
   
 };
@@ -291,6 +293,7 @@ enum {
   /* 21 */ STAGE_TAINT_HAVOC,
   /* 22 */ STAGE_TAINT_LS,
   /* 23 */ STAGE_SYMBOLIC,
+  /* 24 */ STAGE_SYMBOLIC_SEED,
   STAGE_NUM_MAX
 
 };
@@ -1236,6 +1239,14 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* Taint Inference */
 u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
+
+struct tainted* get_constraint(struct tainted *taint, u8 *buf, 
+                                u8 *orig_buf, u32 len);
+
+void set_constraint(struct tainted *taint, u8 *buf, u8 *orig_buf, 
+                      u32 len);
+
+void taint_free(struct tainted *taint);
 
 void destroy_taint(afl_state_t *afl, struct queue_entry *q);
 

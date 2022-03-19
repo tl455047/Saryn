@@ -460,6 +460,14 @@ u8 fuzz_one_original(afl_state_t *afl) {
   orig_in = in_buf = queue_testcase_get(afl, afl->queue_cur);
   len = afl->queue_cur->len;
 
+  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
+    
+    afl->queue_cur->orig_buf = queue_testcase_get(afl, afl->queue_cur->mother);
+    afl->queue_cur->constraints = 
+      get_constraint(NULL, in_buf, afl->queue_cur->orig_buf, len);
+
+  }
+
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
   if (unlikely(!out_buf)) { PFATAL("alloc"); }
 
@@ -536,7 +544,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   }
 
   memcpy(out_buf, in_buf, len);
-
+  
   /*********************
    * PERFORMANCE SCORE *
    *********************/
@@ -2767,6 +2775,13 @@ havoc_stage:
 
     }
 
+    if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
+      
+      set_constraint(afl->queue_cur->constraints, out_buf, 
+        afl->queue_cur->orig_buf, len);
+
+    }
+
     if (common_fuzz_stuff(afl, out_buf, temp_len)) { goto abandon_entry; }
 
     /* out_buf might have been mangled a bit, so let's restore it to its
@@ -2809,6 +2824,12 @@ havoc_stage:
 
   }
   
+  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
+
+    afl->stage_finds[STAGE_SYMBOLIC_SEED] += new_hit_cnt - orig_hit_cnt;
+
+  }
+
   // we should not apply this analysis for every seed.
   if (afl->symbolic_mode && afl->ready_for_symbolic 
         && (u32)len <= afl->cmplog_max_filesize
@@ -2897,6 +2918,16 @@ retry_splicing:
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
+
+  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
+    
+    afl->queue_cur->constraints_fuzz = 0;
+
+    taint_free(afl->queue_cur->constraints);
+
+    ck_free(afl->queue_cur->orig_buf);
+
+  }
 
   afl->splicing_with = -1;
 

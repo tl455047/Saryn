@@ -529,6 +529,16 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
 
+  if (afl->syncing_party && afl->symbolic_mode &&
+      !strncmp(afl->syncing_party, "s2e", 3)) {
+      
+    u32 src_id = atoi(strrchr(afl->syncing_party, '-') + 1);
+
+    q->mother = afl->queue_buf[src_id];
+    q->constraints_fuzz = 1;
+    
+  }
+
   if (afl->direct_mode) {
 
     q->distance = afl->cur_distance;

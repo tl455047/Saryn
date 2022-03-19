@@ -1216,8 +1216,9 @@ void show_stats(afl_state_t *afl) {
                                 u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]));
     if (afl->symbolic_mode) {
     
-      sprintf(tmp + ofs, ", %s/%s", u_stringify_int(IB(4), afl->stage_finds[STAGE_SYMBOLIC]),
-                            u_stringify_int(IB(5), afl->stage_cycles[STAGE_SYMBOLIC]));
+      sprintf(tmp + ofs, ", %s/%s/%s", u_stringify_int(IB(4), afl->stage_finds[STAGE_SYMBOLIC]),
+                            u_stringify_int(IB(5), afl->stage_finds[STAGE_SYMBOLIC_SEED]),
+                            u_stringify_int(IB(6), afl->stage_cycles[STAGE_SYMBOLIC]));
       
       SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/symb : " cRST "%-36s " bSTG bV"\n", tmp);
 

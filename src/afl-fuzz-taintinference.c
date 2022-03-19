@@ -265,6 +265,35 @@ static void add_mem_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
 
 }
 
+struct tainted* get_constraint(struct tainted *taint, u8 *buf, 
+                                u8 *orig_buf, u32 len) {
+
+  for(u32 i = 0; i < len; i++) {
+
+    if (buf[i] != orig_buf[i]) 
+      taint = add_tainted(taint, i, 1);
+
+  }
+
+  return taint;
+
+}
+
+void set_constraint(struct tainted *taint, u8 *buf, u8 *orig_buf, 
+                      u32 len) {
+  
+  while(taint != NULL) {
+
+    if (taint->pos >= len || taint->pos + taint->len >= len)
+      break;
+
+    memcpy(buf + taint->pos, orig_buf + taint->pos, taint->len);
+    taint = taint->next;
+
+  }
+
+}
+
 /**
  * Even the same input, sometimes the results also may be different.
  * Such as the program apply randomness to certain part of progam state 
