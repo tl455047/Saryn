@@ -697,7 +697,7 @@ void show_stats(afl_state_t *afl) {
       
       if (pid) {
 
-        kill(atoi(pid), afl->fsrv.kill_signal);
+        kill(atoi(pid), SIGTERM);
 
         afl->s2e_hang += 1;
 
