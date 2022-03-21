@@ -1252,6 +1252,9 @@ void taint_free(struct tainted *taint);
 void destroy_taint(afl_state_t *afl, struct queue_entry *q);
 
 /* Symbolic */
+
+void handle_failed_inst(afl_state_t *afl, u8 *dir);
+
 u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len);
 
 void check_symbolic_stuck(afl_state_t *afl);

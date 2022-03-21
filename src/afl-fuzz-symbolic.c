@@ -23,12 +23,39 @@
  * in symbolic execution.
  */
 
-static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
+static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   
   FILE *f;
   u8 *fn; 
   struct tainted_info **tmp;
   struct tainted *t; 
+
+  afl->selected_inst = 0;
+  // write selected inst.'s returne address to s2e project dir
+  fn = alloc_printf("%s/ret_addr", afl->symbolic_path);
+  f = create_ffile(fn);
+
+  tmp = afl->queue_cur->taint[TAINT_CMP];
+  
+  for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+  
+    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      continue;
+    
+    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds == 0xFF || 
+        afl->pass_stats[TAINT_CMP][tmp[i]->id].total == 0xFF)
+      continue;
+
+    fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
+    afl->selected_inst++;
+    
+  }
+
+  fclose(f);
+  ck_free(fn);
+
+  if (!afl->selected_inst)
+    return 1;
 
   // write current seed to s2e project dir
   fn = alloc_printf("%s/poc", afl->symbolic_path);
@@ -55,30 +82,40 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   fclose(f);
   ck_free(fn);
 
-  if (afl->shm.cmplog_mode) {
-    
-    afl->selected_inst = 0;
-    // write selected inst.'s returne address to s2e project dir
-    fn = alloc_printf("%s/ret_addr", afl->symbolic_path);
-    f = create_ffile(fn);
+  return 0;
 
-    tmp = afl->queue_cur->taint[TAINT_CMP];
-    
-    for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
-    
-      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
-        continue;
+}
 
-      fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
-      afl->selected_inst++;
+void handle_failed_inst(afl_state_t *afl, u8 *dir) {
+  
+  u8 *fn;
+  FILE *f;
+  u32 id;
+  
+  fn = alloc_printf("%s/%s/failed.stats", afl->sync_dir, dir);
+  
+  f = fopen(fn, "r");
+  
+  if (f) {
+  
+    while(!feof(f)) {
       
+      s32 len = fscanf(f, "%u", &id);
+      if (len < 0) break;
+      
+      afl->pass_stats[TAINT_CMP][id].faileds += 1;
+
     }
+    
+    // remove file
+    if (remove(fn) < 0) 
+      PFATAL("cannot delete failed.stats");
 
     fclose(f);
     ck_free(fn);
-  
-  }
 
+  }
+ 
 }
 
 void reset_cpu_bind(afl_state_t *afl) {
@@ -237,8 +274,12 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   }
 
   afl->tainted_seed[TAINT_CMP]++;
+  
+  if (setup_symbolic_testcase(afl, buf, len)) {
 
-  setup_symbolic_testcase(afl, buf, len);
+    return 1;
+
+  }
   
   // create output dir
   // we follow the nameing convention in s2e

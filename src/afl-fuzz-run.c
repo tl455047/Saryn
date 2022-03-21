@@ -586,6 +586,7 @@ void sync_fuzzers(afl_state_t *afl) {
   u64            orig_hit_cnt = 0, new_hit_cnt = 0;
   u32            sync_cnt = 0, synced = 0, entries = 0;
   u8             path[PATH_MAX + 1 + NAME_MAX];
+  s32            pre_id = -1;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -611,9 +612,11 @@ void sync_fuzzers(afl_state_t *afl) {
 
     }
 
-    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e", 3)) {
+    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e-out-", 8)) {
 
       orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+
+      handle_failed_inst(afl, sd_ent->d_name);
 
     }
 
@@ -738,6 +741,27 @@ void sync_fuzzers(afl_state_t *afl) {
 
         if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
+        if (afl->symbolic_mode &&
+          !strncmp(sd_ent->d_name, "s2e-out-", 8)) {
+          
+          s32 id;
+
+          char *str = strtok(namelist[o]->d_name, "-");
+          
+          str = strtok(NULL, "-");
+          id = atoi(str);
+          
+          if (id != pre_id) {
+            
+            if (afl->pass_stats[TAINT_CMP][id].total < 0xFF)
+              afl->pass_stats[TAINT_CMP][id].total += 1;
+          
+          }
+
+          pre_id = id;
+
+        }
+
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */
 
@@ -769,7 +793,7 @@ void sync_fuzzers(afl_state_t *afl) {
         free(namelist[m]);
     free(namelist);
 
-    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e", 3)) {
+    if (afl->symbolic_mode && !strncmp(sd_ent->d_name, "s2e-out-", 8)) {
 
       new_hit_cnt = afl->queued_items + afl->saved_crashes;
       afl->stage_finds[STAGE_SYMBOLIC] += new_hit_cnt - orig_hit_cnt;

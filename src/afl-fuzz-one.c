@@ -467,10 +467,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
   
     afl->queue_cur->constraints = 
       get_constraint(NULL, in_buf, orig_buf, len);
-    
-    // add to extra
-    add_constraint_to_extra(afl, in_buf, afl->queue_cur->constraints);
-    
+     
   }
   
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
