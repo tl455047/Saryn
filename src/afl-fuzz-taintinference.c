@@ -294,6 +294,17 @@ void set_constraint(struct tainted *taint, u8 *buf, u8 *orig_buf,
 
 }
 
+void add_constraint_to_extra(afl_state_t *afl, u8 *buf, struct tainted *taint) {
+  
+  while(taint != NULL) {
+
+    add_extra(afl, buf + taint->pos, taint->len);
+    taint = taint->next;
+
+  }
+
+}
+
 /**
  * Even the same input, sometimes the results also may be different.
  * Such as the program apply randomness to certain part of progam state 

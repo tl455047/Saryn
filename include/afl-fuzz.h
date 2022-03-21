@@ -1245,6 +1245,8 @@ struct tainted* get_constraint(struct tainted *taint, u8 *buf,
 void set_constraint(struct tainted *taint, u8 *buf, u8 *orig_buf, 
                       u32 len);
 
+void add_constraint_to_extra(afl_state_t *afl, u8 *buf, struct tainted *taint);
+
 void taint_free(struct tainted *taint);
 
 void destroy_taint(afl_state_t *afl, struct queue_entry *q);

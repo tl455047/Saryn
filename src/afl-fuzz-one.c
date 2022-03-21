@@ -467,7 +467,10 @@ u8 fuzz_one_original(afl_state_t *afl) {
   
     afl->queue_cur->constraints = 
       get_constraint(NULL, in_buf, orig_buf, len);
-
+    
+    // add to extra
+    add_constraint_to_extra(afl, in_buf, afl->queue_cur->constraints);
+    
   }
   
   out_buf = afl_realloc(AFL_BUF_PARAM(out), len);
@@ -2920,6 +2923,13 @@ retry_splicing:
 
 /* we are through with this queue entry - for this iteration */
 abandon_entry:
+
+  if (afl->symbolic_mode && afl->queue_cur->constraints_fuzz) {
+
+    afl->queue_cur->constraints_fuzz = 0;
+    ck_free(afl->queue_cur->constraints);
+
+  }
 
   afl->splicing_with = -1;
 

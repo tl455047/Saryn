@@ -69,7 +69,7 @@ static void setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
       if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
         continue;
 
-      fprintf(f, "%llx\n", tmp[i]->ret_addr);
+      fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
       afl->selected_inst++;
       
     }
