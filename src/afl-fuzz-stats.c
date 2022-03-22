@@ -1249,6 +1249,11 @@ void show_stats(afl_state_t *afl) {
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->selected_inst);
     SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp); 
 
+    sprintf(tmp, "%d/%d/%d", afl->solved, afl->failed, afl->unsolved);
+    SAYF(bV bSTOP "  pass stats : "  cRST "%-36s " bSTG bV"\n", tmp);
+
+    sprintf(tmp, "%d/%d", afl->solved_find, afl->failed_find);
+    SAYF(bV bSTOP "        find : "  cRST "%-36s " bSTG bV"\n", tmp);  
     /*for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
       
       sprintf(tmp, "%d", afl->ht_tainted[i]);

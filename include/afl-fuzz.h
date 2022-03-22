@@ -643,6 +643,12 @@ typedef struct afl_state {
       ht_tainted[MEMLOG_HOOK_NUM];
   u8  taint_mode;
 
+  u32 solved,
+      unsolved,
+      failed,
+      solved_find,
+      failed_find;
+
   tainted_map *tmp_tainted;  
   
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -724,6 +730,7 @@ typedef struct afl_state {
   u8 *             s2e_out_dir;
   u64              s2e_usr_time;
   u32              s2e_hang;
+  u32              cur_inst_id;
 
   /* Directed */
   u8               direct_mode;

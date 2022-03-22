@@ -1698,11 +1698,11 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
       ins_inference(afl, ofs, i, loggeds);
 
     }
-    /*else {
+    else {
 
       rtn_inference(afl, ofs, i, loggeds);
 
-    }*/
+    }
 
   }
 
