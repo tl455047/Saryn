@@ -2393,8 +2393,11 @@ int main(int argc, char **argv_orig, char **envp) {
           prev_queued_items = afl->queued_items;
           create_alias_table(afl);
 
+          if (afl->symbolic_mode && afl->ready_for_cal) 
+            afl->ready_for_cal = 0;
+        
         }
-
+  
         afl->current_entry = select_next_queue_entry(afl);
         afl->queue_cur = afl->queue_buf[afl->current_entry];
 
@@ -2428,6 +2431,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         afl->ready_for_sync = 0;
         afl->ready_for_symbolic = 1; 
+        afl->ready_for_cal = 1;
 
       }
       

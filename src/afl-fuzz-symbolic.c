@@ -56,8 +56,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
         !afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
       afl->unsolved++;
 
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds == 0xFF || 
-        afl->pass_stats[TAINT_CMP][tmp[i]->id].total == 0xFF)
+    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds > 4)
       continue;
     
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
@@ -69,7 +68,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   fclose(f);
   ck_free(fn);
 
-  if (afl->unsolved < 50)
+  if (!afl->unsolved)
     return 1;
 
   // write current seed to s2e project dir
@@ -98,6 +97,98 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   ck_free(fn);
 
   return 0;
+
+}
+
+void inst_array_init(afl_state_t *afl, struct queue_entry *q) {
+
+  u32 cnt = 0;
+  u32 *tmp;
+  u32 j;
+  s32 fd;
+  u8 *buf;
+
+  buf = ck_alloc_nozero(q->len);
+
+  fd = open(q->fname, O_RDONLY);
+
+  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
+
+  ck_read(fd, buf, q->len, q->fname);
+  
+  close(fd);
+
+  if (common_fuzz_cmplog_stuff(afl, buf, q->len)) return;
+
+  for(u32 i = 0; i < CMP_MAP_W; i++) {
+
+    if (!afl->shm.cmp_map->headers[i].hits) continue;
+
+    cnt++;
+
+  }
+
+  tmp = ck_alloc(cnt * sizeof(u32));
+  
+  j = 0;
+  for(u32 i = 0; i < CMP_MAP_W; i++) {
+
+    if (!afl->shm.cmp_map->headers[i].hits) continue;
+
+    tmp[j++] = i;
+
+  }
+
+  q->inst_arr = tmp;
+  q->inst_arr_size = cnt;
+
+}
+
+u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
+  
+  u32 idx, 
+      unsolved_inst = 0, 
+      perf_score = 1;
+
+  for(u32 i = 0; i < q->inst_arr_size; i++) {
+
+    idx = q->inst_arr[i];
+
+    // if (afl->pass_stats[TAINT_CMP][idx].faileds)
+
+    // if (afl->pass_stats[TAINT_CMP][idx].total)
+
+    if (!afl->pass_stats[TAINT_CMP][idx].faileds &&
+        !afl->pass_stats[TAINT_CMP][idx].total) {
+      
+      unsolved_inst++;
+
+    }
+
+  }
+
+  if (unsolved_inst > 300) 
+    perf_score *= 4;
+  else if (unsolved_inst > 250) 
+    perf_score *= 2;
+  else if (unsolved_inst > 200) 
+    perf_score *= 1.8;
+  else if (unsolved_inst > 150) 
+    perf_score *= 1.6;
+  else if (unsolved_inst > 100)
+    perf_score *= 1.4;
+  else if (unsolved_inst > 75) 
+    perf_score *= 1.2;
+  else if (unsolved_inst > 50)
+    perf_score *= 1.1;
+  else if (unsolved_inst > 25)
+    perf_score *= 1;
+  else if (unsolved_inst > 10) 
+    perf_score *= 0.8;
+  else 
+    perf_score *= 0.6;
+
+  return perf_score;
 
 }
 
