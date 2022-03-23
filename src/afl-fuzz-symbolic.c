@@ -41,30 +41,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   afl->failed = 0;
   afl->solved = 0;
 
-  for(u32 i = 0; i < CMP_MAP_W; i++) {
-
-    if (!afl->shm.cmp_map->headers[i].hits) continue;
-
-    if (afl->pass_stats[TAINT_CMP][i].faileds)
-      afl->failed++;
-    
-    if (afl->pass_stats[TAINT_CMP][i].total)
-      afl->solved++;
-    
-    if (!afl->pass_stats[TAINT_CMP][i].faileds &&
-        !afl->pass_stats[TAINT_CMP][i].total)
-      afl->unsolved++;
-
-    if (afl->pass_stats[TAINT_CMP][i].total == 0xFF && 
-        afl->pass_stats[TAINT_CMP][i].faileds == 0xFF)
-      continue;
-
-    fprintf(f, "%llx %u\n", afl->shm.cmp_map->ret_addr[i], i);
-
-    afl->selected_inst++;
-  
-  }
-  /*for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+  for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
   
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
@@ -84,9 +61,10 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
       continue;
     
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
+    
     afl->selected_inst++;
     
-  }*/
+  }
 
   fclose(f);
   ck_free(fn);
