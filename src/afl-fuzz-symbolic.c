@@ -41,7 +41,27 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   afl->failed = 0;
   afl->solved = 0;
 
-  for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+  for(u32 i = 0; i < CMP_MAP_W; i++) {
+  
+    if (!afl->orig_cmp_map->headers[i].hits) continue;
+
+    if (afl->pass_stats[TAINT_CMP][i].faileds)
+      afl->failed++;
+    
+    if (afl->pass_stats[TAINT_CMP][i].total)
+      afl->solved++;
+    
+    if (!afl->pass_stats[TAINT_CMP][i].faileds &&
+        !afl->pass_stats[TAINT_CMP][i].total)
+      afl->unsolved++;
+    
+    fprintf(f, "%llx %u\n", afl->orig_cmp_map->ret_addr[i], i);
+    
+    afl->selected_inst++;
+    
+  }
+
+  /*for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
   
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
@@ -63,7 +83,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
     
     afl->selected_inst++;
     
-  }
+  }*/
 
   fclose(f);
   ck_free(fn);
@@ -147,15 +167,16 @@ void inst_array_init(afl_state_t *afl, struct queue_entry *q) {
 u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
   
   u32 idx, 
-      unsolved_inst = 0, 
+      unsolved_inst = 0,
+      failed_inst = 0, 
       perf_score = 1;
 
   for(u32 i = 0; i < q->inst_arr_size; i++) {
 
     idx = q->inst_arr[i];
 
-    // if (afl->pass_stats[TAINT_CMP][idx].faileds)
-
+    if (afl->pass_stats[TAINT_CMP][idx].faileds)
+      failed_inst += afl->pass_stats[TAINT_CMP][idx].faileds;
     // if (afl->pass_stats[TAINT_CMP][idx].total)
 
     if (!afl->pass_stats[TAINT_CMP][idx].faileds &&
@@ -168,26 +189,47 @@ u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
   }
 
   if (unsolved_inst > 300) 
-    perf_score *= 4;
+    perf_score *= 8;
   else if (unsolved_inst > 250) 
-    perf_score *= 2;
+    perf_score *= 7;
   else if (unsolved_inst > 200) 
-    perf_score *= 1.8;
+    perf_score *= 6;
   else if (unsolved_inst > 150) 
-    perf_score *= 1.6;
+    perf_score *= 5;
   else if (unsolved_inst > 100)
-    perf_score *= 1.4;
+    perf_score *= 4;
   else if (unsolved_inst > 75) 
-    perf_score *= 1.2;
+    perf_score *= 3;
   else if (unsolved_inst > 50)
-    perf_score *= 1.1;
+    perf_score *= 2;
   else if (unsolved_inst > 25)
-    perf_score *= 1;
+    perf_score *= 1.5;
   else if (unsolved_inst > 10) 
-    perf_score *= 0.8;
+    perf_score *= 1;
   else 
-    perf_score *= 0.6;
+    perf_score *= 0.5;
 
+  /*if (failed_inst > 300) 
+    perf_score *= 0.1;
+  else if (failed_inst > 250) 
+    perf_score *= 0.2;
+  else if (failed_inst > 200) 
+    perf_score *= 0.3;
+  else if (failed_inst > 150) 
+    perf_score *= 0.4;
+  else if (failed_inst > 100)
+    perf_score *= 0.5;
+  else if (failed_inst > 75) 
+    perf_score *= 0.6;
+  else if (failed_inst > 50)
+    perf_score *= 0.7;
+  else if (failed_inst > 25)
+    perf_score *= 0.8;
+  else if (failed_inst > 10) 
+    perf_score *= 0.9;
+  else 
+    perf_score *= 1;*/
+    
   return perf_score;
 
 }
