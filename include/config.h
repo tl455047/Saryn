@@ -528,7 +528,7 @@
 #define S2E_ENV_VAR "__S2E_PID"
 
 /* symbolic timeout */
-#define SYMBOLIC_TIMEOUT 700000
+#define SYMBOLIC_TIMEOUT 3600000
 
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

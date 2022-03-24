@@ -586,7 +586,6 @@ void sync_fuzzers(afl_state_t *afl) {
   u64            orig_hit_cnt = 0, new_hit_cnt = 0;
   u32            sync_cnt = 0, synced = 0, entries = 0;
   u8             path[PATH_MAX + 1 + NAME_MAX];
-  s32            pre_id = -1, id = -1;
 
   sd = opendir(afl->sync_dir);
   if (!sd) { PFATAL("Unable to open '%s'", afl->sync_dir); }
@@ -746,10 +745,14 @@ void sync_fuzzers(afl_state_t *afl) {
 
           char *str = strtok(namelist[o]->d_name, "-");
           
+          str = strtok(NULL, "-");          
+          afl->cur_ret_addr = strtoll(str, NULL, 16);
+
           str = strtok(NULL, "-");
-          id = atoi(str);
-          
-          afl->cur_inst_id = id;
+          afl->cur_inst_id = atoi(str);
+
+          if (afl->pass_stats[TAINT_CMP][afl->cur_inst_id].total < 0xFF)
+              afl->pass_stats[TAINT_CMP][afl->cur_inst_id].total += 1;
 
         }
 
@@ -766,20 +769,6 @@ void sync_fuzzers(afl_state_t *afl) {
         afl->queued_imported +=
             save_if_interesting(afl, mem, st.st_size, fault);
         afl->syncing_party = 0;
-
-        if (afl->symbolic_mode &&
-          !strncmp(sd_ent->d_name, "s2e-out-", 8)) {
-          
-          if (id != pre_id) {
-            
-            if (afl->pass_stats[TAINT_CMP][id].total < 0xFF)
-              afl->pass_stats[TAINT_CMP][id].total += 1;
-          
-          }
-
-          pre_id = id;
-
-        }
 
         munmap(mem, st.st_size);
 

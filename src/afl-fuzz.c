@@ -2540,6 +2540,10 @@ stop_fuzzing:
   if (frida_afl_preload) { ck_free(frida_afl_preload); }
 
   fclose(afl->fsrv.plot_file);
+
+  if (afl->symbolic_mode) 
+    fclose(afl->s2e_solving_stat);
+    
   destroy_queue(afl);
   destroy_extras(afl);
   destroy_custom_mutators(afl);

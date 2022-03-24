@@ -649,9 +649,7 @@ typedef struct afl_state {
 
   u32 solved,
       unsolved,
-      failed,
-      solved_find,
-      failed_find;
+      failed;
 
   tainted_map *tmp_tainted;  
   
@@ -727,7 +725,7 @@ typedef struct afl_state {
   afl_forkserver_t memlog_fsrv; 
   
   /* Symbolic */
-  char *           symbolic_path;
+  u8*           symbolic_path;
   u8               symbolic_mode;       
   u8               ready_for_symbolic;
   u8               ready_for_sync;
@@ -736,6 +734,8 @@ typedef struct afl_state {
   u64              s2e_usr_time;
   u32              s2e_hang;
   u32              cur_inst_id;
+  u64              cur_ret_addr;
+  FILE*            s2e_solving_stat;
 
   /* Directed */
   u8               direct_mode;

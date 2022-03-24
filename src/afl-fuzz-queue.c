@@ -537,11 +537,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     q->mother = afl->queue_buf[src_id];
     q->constraints_fuzz = 1;
     
-    if (afl->pass_stats[TAINT_CMP][afl->cur_inst_id].faileds)
-      afl->failed_find++;
-
-    if (afl->pass_stats[TAINT_CMP][afl->cur_inst_id].total)
-      afl->solved_find++;
+    fprintf(afl->s2e_solving_stat, "%llx %u\n", afl->cur_ret_addr, afl->cur_inst_id);
 
   }
 

@@ -2097,6 +2097,33 @@ void setup_dirs_fds(afl_state_t *afl) {
 
   fflush(afl->fsrv.plot_file);
 
+  if (afl->symbolic_mode) {
+  
+    tmp = alloc_printf("%s/solving_stat", afl->out_dir);
+
+    if (!afl->in_place_resume) {
+      
+      int fd = open(tmp, O_WRONLY | O_CREAT | O_EXCL, DEFAULT_PERMISSION);
+      if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+      ck_free(tmp);
+
+      afl->s2e_solving_stat = fdopen(fd, "w");
+      if (!afl->s2e_solving_stat) { PFATAL("fdopen() failed"); }
+
+    } else {
+
+      int fd = open(tmp, O_WRONLY | O_CREAT, DEFAULT_PERMISSION);
+      if (fd < 0) { PFATAL("Unable to create '%s'", tmp); }
+      ck_free(tmp);
+
+      afl->s2e_solving_stat = fdopen(fd, "w");
+      if (!afl->s2e_solving_stat) { PFATAL("fdopen() failed"); }
+
+      fseek(afl->s2e_solving_stat, 0, SEEK_END);
+
+    } 
+  
+  }
   /* ignore errors */
 
 }

@@ -55,6 +55,9 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
         !afl->pass_stats[TAINT_CMP][i].total)
       afl->unsolved++;
     
+    if (afl->pass_stats[TAINT_CMP][i].faileds > 8)
+      continue;
+
     fprintf(f, "%llx %u\n", afl->orig_cmp_map->ret_addr[i], i);
     
     afl->selected_inst++;
@@ -76,14 +79,13 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
         !afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
       afl->unsolved++;
 
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds > 4)
-      continue;
-    
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
     
     afl->selected_inst++;
     
   }*/
+  
+  fflush(f);
 
   fclose(f);
   ck_free(fn);
@@ -112,6 +114,8 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
     t = t->next;
   
   }
+
+  fflush(f);
 
   fclose(f);
   ck_free(fn);
@@ -201,34 +205,34 @@ u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
   else if (unsolved_inst > 75) 
     perf_score *= 3;
   else if (unsolved_inst > 50)
-    perf_score *= 2;
+    perf_score *= 2.5;
   else if (unsolved_inst > 25)
-    perf_score *= 1.5;
+    perf_score *= 2;
   else if (unsolved_inst > 10) 
+    perf_score *= 1.5;
+  else 
     perf_score *= 1;
-  else 
-    perf_score *= 0.5;
 
-  /*if (failed_inst > 300) 
-    perf_score *= 0.1;
+  if (failed_inst > 300) 
+    perf_score *= 1;
   else if (failed_inst > 250) 
-    perf_score *= 0.2;
+    perf_score *= 1.5;
   else if (failed_inst > 200) 
-    perf_score *= 0.3;
+    perf_score *= 2;
   else if (failed_inst > 150) 
-    perf_score *= 0.4;
+    perf_score *= 3;
   else if (failed_inst > 100)
-    perf_score *= 0.5;
+    perf_score *= 4;
   else if (failed_inst > 75) 
-    perf_score *= 0.6;
+    perf_score *= 5;
   else if (failed_inst > 50)
-    perf_score *= 0.7;
+    perf_score *= 6;
   else if (failed_inst > 25)
-    perf_score *= 0.8;
+    perf_score *= 7;
   else if (failed_inst > 10) 
-    perf_score *= 0.9;
+    perf_score *= 8;
   else 
-    perf_score *= 1;*/
+    perf_score *= 1;
     
   return perf_score;
 
