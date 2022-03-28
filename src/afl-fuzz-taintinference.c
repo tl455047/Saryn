@@ -1700,7 +1700,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     }
     else {
 
-      rtn_inference(afl, ofs, i, loggeds);
+      //rtn_inference(afl, ofs, i, loggeds);
 
     }
 
@@ -2096,7 +2096,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   
   // reset state info
   afl->tainted_len = 0;
-
+  afl->cur_tainted_len = len;
+  
   memset(afl->ht_tainted, 0, MEMLOG_HOOK_NUM * sizeof(u32));
   
   if (mode == TAINT_CMP) {

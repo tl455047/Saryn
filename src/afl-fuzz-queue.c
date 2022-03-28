@@ -536,7 +536,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
     q->mother = afl->queue_buf[src_id];
     q->constraints_fuzz = 1;
-    
+
     fprintf(afl->s2e_solving_stat, "%llx %u\n", afl->cur_ret_addr, afl->cur_inst_id);
 
   }
@@ -1122,7 +1122,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     
   }
 
-  if (afl->symbolic_mode) {
+  /*if (afl->symbolic_mode) {
 
     if (!q->inst_arr_size) {
 
@@ -1139,7 +1139,7 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     if (q->symb_score != 0)
       perf_score *= q->symb_score;
 
-  }
+  }*/
 
   /* Make sure that we don't go over limit. */
 

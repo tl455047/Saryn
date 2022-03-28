@@ -37,60 +37,52 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
 
   tmp = afl->queue_cur->taint[TAINT_CMP];
   
-  afl->unsolved = 0;
-  afl->failed = 0;
-  afl->solved = 0;
+  afl->unsolved_inst = 0;
+  afl->failed_inst = 0;
+  afl->solved_inst = 0;
 
-  for(u32 i = 0; i < CMP_MAP_W; i++) {
-  
-    if (!afl->orig_cmp_map->headers[i].hits) continue;
-
-    if (afl->pass_stats[TAINT_CMP][i].faileds)
-      afl->failed++;
-    
-    if (afl->pass_stats[TAINT_CMP][i].total)
-      afl->solved++;
-    
-    if (!afl->pass_stats[TAINT_CMP][i].faileds &&
-        !afl->pass_stats[TAINT_CMP][i].total)
-      afl->unsolved++;
-    
-    if (afl->pass_stats[TAINT_CMP][i].faileds > 8)
-      continue;
-
-    fprintf(f, "%llx %u\n", afl->orig_cmp_map->ret_addr[i], i);
-    
-    afl->selected_inst++;
-    
-  }
-
-  /*for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
+  for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
   
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
     
     if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds)
-      afl->failed++;
+      afl->failed_inst++;
     
     if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
-      afl->solved++;
+      afl->solved_inst++;
     
     if (!afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds &&
         !afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
-      afl->unsolved++;
+      afl->unsolved_inst++;
 
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
     
     afl->selected_inst++;
     
-  }*/
+  }
   
+  /*for(u32 i = 0; i < CMP_MAP_W; i++) {
+  
+    if (!afl->orig_cmp_map->headers[i].hits) 
+      continue;
+
+     if (!afl->pass_stats[TAINT_CMP][i].faileds &&
+        !afl->pass_stats[TAINT_CMP][i].total)
+      afl->unsolved_inst++;
+ 
+    fprintf(f, "%llx %u\n", afl->orig_cmp_map->ret_addr[i], i);
+    
+    afl->selected_inst++;
+    
+  }*/
+
   fflush(f);
 
   fclose(f);
   ck_free(fn);
 
-  if (!afl->unsolved)
+  if (!afl->unsolved_inst)
     return 1;
 
   // write current seed to s2e project dir
@@ -98,6 +90,8 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   f = create_ffile(fn);
   
   fwrite(buf, len, 1, f);
+
+  fflush(f);
 
   fclose(f);
   ck_free(fn);
@@ -116,7 +110,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   }
 
   fflush(f);
-
+  
   fclose(f);
   ck_free(fn);
 
@@ -240,19 +234,21 @@ u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
 
 void handle_failed_inst(afl_state_t *afl, u8 *dir) {
   
-  u8 *fn;
+  u8 *fn, *new_fn;
   FILE *f;
   u32 id;
-  
+  u64 ret_addr;
+
   fn = alloc_printf("%s/%s/failed.stats", afl->sync_dir, dir);
+  new_fn = alloc_printf("%s/%s/.failed.stats", afl->sync_dir, dir);
   
   f = fopen(fn, "r");
-  
+    
   if (f) {
   
     while(!feof(f)) {
       
-      s32 len = fscanf(f, "%u", &id);
+      s32 len = fscanf(f, "%llx %u\n", &ret_addr, &id);
       if (len < 0) break;
       
       if (afl->pass_stats[TAINT_CMP][id].faileds < 0xFF)
@@ -261,14 +257,16 @@ void handle_failed_inst(afl_state_t *afl, u8 *dir) {
     }
     
     // remove file
-    if (remove(fn) < 0) 
-      PFATAL("cannot delete failed.stats");
+    if (rename(fn, new_fn) < 0) 
+      PFATAL("cannot rename failed.stats");
 
     fclose(f);
-    ck_free(fn);
-
+    
   }
- 
+  
+  ck_free(fn);
+  ck_free(new_fn);
+
 }
 
 void reset_cpu_bind(afl_state_t *afl) {
@@ -417,9 +415,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // testcases from symbolic
   // this should done when checking the symbolic dir
 
-  // taint inference
-  memcpy(buf, orig_buf, len);
-  
+  // taint inference 
   if (taint_inference_stage(afl, buf, orig_buf, len, TAINT_CMP)) {
 
     return 1;
@@ -428,7 +424,7 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
 
   afl->tainted_seed[TAINT_CMP]++;
   
-  if (setup_symbolic_testcase(afl, buf, len)) {
+  if (setup_symbolic_testcase(afl, orig_buf, len)) {
 
     return 1;
 

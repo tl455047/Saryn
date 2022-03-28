@@ -616,6 +616,8 @@ void sync_fuzzers(afl_state_t *afl) {
       orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
       handle_failed_inst(afl, sd_ent->d_name);
+      
+      afl->solved_inst = 0;
 
     }
 
@@ -791,7 +793,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       new_hit_cnt = afl->queued_items + afl->saved_crashes;
       afl->stage_finds[STAGE_SYMBOLIC] += new_hit_cnt - orig_hit_cnt;
-    
+
     }
 
   }

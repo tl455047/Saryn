@@ -643,13 +643,15 @@ typedef struct afl_state {
   
   u32 selected_inst,                     /*       taint inference info       */
       tainted_len,
+      cur_tainted_len,
       tainted_seed[TAINT_MODE],
       ht_tainted[MEMLOG_HOOK_NUM];
   u8  taint_mode;
 
-  u32 solved,
-      unsolved,
-      failed;
+  u32 solved_inst,
+      solved_cov_inst,
+      unsolved_inst,
+      failed_inst;
 
   tainted_map *tmp_tainted;  
   

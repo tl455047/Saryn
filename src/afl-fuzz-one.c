@@ -563,6 +563,15 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+  // we should not apply this analysis for every seed.
+  if (afl->symbolic_mode && afl->ready_for_symbolic 
+        && (u32)len <= afl->cmplog_max_filesize
+        && !afl->queue_cur->taint_cur[TAINT_CMP]) {
+    
+    invoke_symbolic(afl, out_buf, in_buf, len);
+    
+  }
+  
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
@@ -590,29 +599,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
     }
 
   }
-
-  // cmplog mode
-  // if (unlikely(afl->shm.cmplog_mode) && (u32)len <= afl->cmplog_max_filesize) {
-  /*if (unlikely(afl->shm.cmplog_mode)) {  
-    memcpy(out_buf, in_buf, len);
-    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP)) {
-
-      goto abandon_entry;
-
-    }
-    afl->tainted_seed[TAINT_CMP]++;
-  }
-  
-  // memlog mode
-  if (unlikely(afl->shm.memlog_mode)) {
-    memcpy(out_buf, in_buf, len);
-    if (taint_inference_stage(afl, out_buf, in_buf, len, TAINT_MEM)) {
-
-      goto abandon_entry;
-
-    }
-    afl->tainted_seed[TAINT_MEM]++;
-  }*/
   
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
@@ -2830,15 +2816,6 @@ havoc_stage:
 
     afl->stage_finds[STAGE_SYMBOLIC_SEED] += new_hit_cnt - orig_hit_cnt;
 
-  }
-
-  // we should not apply this analysis for every seed.
-  if (afl->symbolic_mode && afl->ready_for_symbolic 
-        && (u32)len <= afl->cmplog_max_filesize
-        && !afl->queue_cur->taint_cur[TAINT_CMP]) {
-    
-    invoke_symbolic(afl, out_buf, in_buf, len);
-    
   }
 
 #ifndef IGNORE_FINDS

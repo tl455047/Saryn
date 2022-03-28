@@ -1246,10 +1246,10 @@ void show_stats(afl_state_t *afl) {
     sprintf(tmp, "%d/%d/%d", afl->tainted_seed[TAINT_CMP], afl->s2e_hang, afl->queued_items);
     SAYF(bV bSTOP " taint seeds : "  cRST "%-36s " bSTG bV"\n", tmp);
 
-    sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->queue_cur->len, afl->selected_inst);
+    sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->cur_tainted_len, afl->selected_inst);
     SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp); 
 
-    sprintf(tmp, "%d/%d/%d", afl->solved, afl->failed, afl->unsolved);
+    sprintf(tmp, "%d/%d/%d", afl->solved_inst, afl->failed_inst, afl->unsolved_inst);
     SAYF(bV bSTOP "  pass stats : "  cRST "%-36s " bSTG bV"\n", tmp);
     
     /*for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
