@@ -1281,6 +1281,8 @@ void setup_symbolic_signal_handlers();
 
 void afl_state_symbolic_terminate(void);
 
+void kill_all_dead_symbolic();
+
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 

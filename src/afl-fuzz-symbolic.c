@@ -118,6 +118,47 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
 
 }
 
+void kill_all_dead_symbolic() {
+
+   // only for linux
+
+  DIR *          d;
+  struct dirent *de;
+  d = opendir("/proc");
+
+  if (!d) 
+    return;
+
+  while ((de = readdir(d))) {
+
+    u8    fn[PATH_MAX];
+    FILE *f;
+    u8    tmp[MAX_LINE];
+    
+    if (!isdigit(de->d_name[0])) { continue; }
+
+    snprintf(fn, PATH_MAX, "/proc/%s/status", de->d_name);
+
+    if (!(f = fopen(fn, "r"))) { continue; }
+
+    while (fgets(tmp, MAX_LINE, f)) {
+
+      if (!strncmp(tmp, "Name:   qemu-system", 19)) {
+        
+        kill(atoi(de->d_name), SIGKILL);
+
+      }
+
+    }
+
+    fclose(f);
+
+  }
+
+  closedir(d);
+
+}
+
 void inst_array_init(afl_state_t *afl, struct queue_entry *q) {
 
   u32 cnt = 0;
