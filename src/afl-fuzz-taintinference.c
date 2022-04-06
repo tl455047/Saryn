@@ -412,9 +412,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
   u8* out_buf;
 
   tmp = afl->queue_cur->taint[mode][cur];
-  afl->log_id = tmp->id;
-  afl->log_type = tmp->inst_type;
-  afl->log_op_type = tmp->type;
 
   parts = 0;
   t_len = 0;
@@ -470,7 +467,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
       }
       else {
 
-        r_max = 50;
+        r_max = 52;
 
       }
 
@@ -723,7 +720,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
         
-       
         case 45 ... 47: {
 
           /* Set dword to interesting value, little endian. */
@@ -737,7 +733,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        default: 
+        case 48 ... 52: {
 
           if (afl->extras_cnt) {
             
@@ -774,7 +770,8 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
             break;
 
           }
-          break;
+         
+        }
 
       }
 
@@ -1095,8 +1092,7 @@ u8 linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u8 idx, u8 mode) {
     for(u32 i = 0; i < t->len; i++) {
       
       afl->stage_cur++;
-      afl->log_val = v0;
-      
+    
       if (mode == TAINT_CMP) {
         
         fprintf(f, "ofs: %u gap: %llu v0: %llu v1: %llu ops: %u\n", 
@@ -1828,27 +1824,56 @@ void mem_inference(afl_state_t *afl, u32 ofs) {
 u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {  
   
   struct tainted *t;
-  struct tainted_info *tmp;
+  struct tainted_info **tmp;
 
   update_state(afl, mode);
 
   // tainted part only mutation
   u64 orig_hit_cnt, new_hit_cnt, orig_execs;
-  u32 inst_stage_max;
+  u32 inst_stage_max, inst_num = 0;
 
   afl->stage_name = "taint havoc";
   afl->stage_short = "th";
   afl->stage_cur = 0;
   
-  afl->stage_max = HAVOC_CYCLES_INIT * 2;
-  inst_stage_max = afl->stage_max / afl->queue_cur->taint_cur[mode];
+  tmp = afl->queue_cur->taint[TAINT_CMP];
+
+  for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
   
+    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      continue;
+    
+    inst_num++;
+
+  }
+
+  afl->stage_max = HAVOC_CYCLES * afl->queue_cur->perf_score / afl->havoc_div / 100;
+  inst_stage_max = afl->stage_max / inst_num; 
+  
+  if (inst_stage_max < HAVOC_CYCLES) {
+    
+    inst_stage_max = HAVOC_CYCLES;
+    afl->stage_max =  inst_stage_max * inst_num;
+
+  }
+
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
 
+  inst_num = 0;
+
   for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
+  
+    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      continue;
     
-    if (taint_havoc(afl, buf, orig_buf, len, inst_stage_max, i, mode)) return 1;
+    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= CMPLOG_FAIL_MAX ||
+        afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= CMPLOG_FAIL_MAX)
+      continue;
+
+    if (taint_havoc(afl, buf, orig_buf, len, inst_stage_max, inst_num++, mode)) return 1;
+
+    afl->pass_stats[TAINT_CMP][tmp[i]->id].total++;
 
   }
   
@@ -1858,7 +1883,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   // linear search
   
-  u64 inst_orig_hit_cnt, inst_new_hit_cnt;
+  /*u64 inst_orig_hit_cnt, inst_new_hit_cnt;
   u32 r_max, r;
 
   afl->stage_name = "linear search";
@@ -1918,10 +1943,6 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
     }
 
-    afl->log_id = tmp->id;
-    afl->log_type = tmp->inst_type;
-    afl->log_op_type = tmp->type;
-
     if (tmp->inst_type == HT_GEP_HOOK) {
 
       for(u32 j = 0; j < tmp->gep->num_of_idx; j++) {
@@ -1978,7 +1999,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_TAINT_LS] += new_hit_cnt - orig_hit_cnt;
-  afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;
+  afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;*/
 
   return 0;
 

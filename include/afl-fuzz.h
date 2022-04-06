@@ -635,11 +635,6 @@ typedef struct afl_state {
       last_crash_time,                  /* Time for most recent crash (ms)  */
       last_hang_time,                   /* Time for most recent hang (ms)   */
       exit_on_time;                     /* Delay to exit if no new paths    */
-
-  u32 log_id,                        /*           Memlog info            */
-      log_type,
-      log_op_type;
-  u64 log_val;
   
   u32 selected_inst,                     /*       taint inference info       */
       tainted_len,
@@ -1252,6 +1247,8 @@ u8 common_fuzz_memlog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* Taint Inference */
 u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
+
+u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode);
 
 struct tainted* get_constraint(struct tainted *taint, u8 *buf, 
                                 u8 *orig_buf, u32 len);
