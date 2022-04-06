@@ -2825,8 +2825,9 @@ havoc_stage:
         !afl->queue_cur->taint_failed[TAINT_CMP])
       taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
 
-    taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
-    
+    if (afl->queue_cur->taint_cur[TAINT_CMP])
+      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
+
   }
 
 #ifndef IGNORE_FINDS

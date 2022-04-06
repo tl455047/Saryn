@@ -733,12 +733,10 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        case 48 ... 52: {
+        /*case 48 ... 52: {
 
           if (afl->extras_cnt) {
             
-            /* Use the dictionary. */
-
             u32 use_extra = rand_below(afl, afl->extras_cnt);
             u32 extra_len = afl->extras[use_extra].len;
 
@@ -755,8 +753,6 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
           if (afl->a_extras_cnt) {
 
-            /* Use the dictionary. */
-
             u32 use_extra = rand_below(afl, afl->a_extras_cnt);
             u32 extra_len = afl->a_extras[use_extra].len;
 
@@ -771,7 +767,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
           }
          
-        }
+        }*/
 
       }
 
