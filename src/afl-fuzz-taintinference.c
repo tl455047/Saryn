@@ -335,13 +335,13 @@ void byte_level_mutate(afl_state_t *afl, u8 *buf, u32 ofs, u32 mutator) {
     }
     case 1: {
       
-      *(buf + ofs) += 1;
+      type_replace(afl, buf + ofs, 1);
       break;
     
     }
     case 2: {
       
-      type_replace(afl, buf + ofs, 1);
+      *(buf + ofs) += 1;
       break;
     
     }
@@ -1460,7 +1460,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
 
   }  
   // selected ret
-  if (mode == TAINT_CMP) {
+  /*if (mode == TAINT_CMP) {
 
     u32 cnt = 0;
     tmp = afl->queue_cur->taint[TAINT_CMP];
@@ -1489,7 +1489,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
     fclose(f);
     ck_free(queue_fn);
 
-  } 
+  }*/ 
   
 }
 
@@ -1700,7 +1700,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     }
     else {
 
-      //rtn_inference(afl, ofs, i, loggeds);
+      rtn_inference(afl, ofs, i, loggeds);
 
     }
 
