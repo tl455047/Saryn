@@ -1771,7 +1771,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   else {
 
     r_max = MIN((u32)(afl->queue_cur->taint_cur[mode] / 2), 
-      (u32)(1 << (1 + rand_below(afl, HAVOC_STACK_POW2))));
+      (u32)(1 << (3 + rand_below(afl, 4))));
 
   }
 
