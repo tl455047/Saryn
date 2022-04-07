@@ -1854,9 +1854,6 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   if (inst_stage_max < MIN_TAINTED_HAVOC) {
     
-    inst_stage_max = MIN_TAINTED_HAVOC;
-    inst_num = afl->stage_max / inst_stage_max;
-
     inst_arr = ck_alloc(inst_num * sizeof(u32));
   
     j = 0;
@@ -1868,6 +1865,9 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       inst_arr[j++] = i;
 
     }
+    
+    inst_stage_max = MIN_TAINTED_HAVOC;
+    inst_num = afl->stage_max / inst_stage_max;
 
     u32 idx;
     j = 0;
