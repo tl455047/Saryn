@@ -4,6 +4,7 @@
 #include "memlog.h"
 
 #define SLIGHT_TAINTED 8
+#define MIN_TAINTED_HAVOC 32
 
 struct taint_operations {
 
@@ -425,7 +426,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
   
   }
   
-  for( ; afl->stage_cur < (cur + 1) * stage_max; afl->stage_cur++) {
+  for( ; afl->stage_cur < stage_max; afl->stage_cur++) {
     
     if (t_len < SLIGHT_TAINTED) {
 
@@ -733,7 +734,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
         }
 
-        /*case 48 ... 52: {
+        case 48 ... 52: {
 
           if (afl->extras_cnt) {
             
@@ -767,7 +768,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
 
           }
          
-        }*/
+        }
 
       }
 
@@ -1826,7 +1827,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   // tainted part only mutation
   u64 orig_hit_cnt, new_hit_cnt, orig_execs;
-  u32 inst_stage_max, inst_num = 0;
+  u32 inst_stage_max, inst_num, j;
+  u8 *inst_arr = NULL;
 
   afl->stage_name = "taint havoc";
   afl->stage_short = "th";
@@ -1834,6 +1836,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   tmp = afl->queue_cur->taint[TAINT_CMP];
 
+  inst_num = 0;
   for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
   
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
@@ -1846,30 +1849,62 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   afl->stage_max = HAVOC_CYCLES * afl->queue_cur->perf_score / afl->havoc_div / 100;
   inst_stage_max = afl->stage_max / inst_num; 
   
-  if (inst_stage_max < HAVOC_CYCLES) {
-    
-    inst_stage_max = HAVOC_CYCLES;
-    afl->stage_max =  inst_stage_max * inst_num;
-
-  }
-
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
 
-  inst_num = 0;
-
-  for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
-  
-    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
-      continue;
+  if (inst_stage_max < MIN_TAINTED_HAVOC) {
     
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= CMPLOG_FAIL_MAX ||
-        afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= CMPLOG_FAIL_MAX)
-      continue;
+    inst_stage_max = MIN_TAINTED_HAVOC;
+    inst_num = afl->stage_max / inst_stage_max;
 
-    if (taint_havoc(afl, buf, orig_buf, len, inst_stage_max, inst_num++, mode)) return 1;
+    inst_arr = ck_alloc(inst_num * sizeof(u32));
+  
+    j = 0;
+    for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
+    
+      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;
+      
+      inst_arr[j++] = i;
 
-    afl->pass_stats[TAINT_CMP][tmp[i]->id].total++;
+    }
+
+    u32 idx;
+    j = 0;
+    for(u32 i = 0; i < inst_num; i++) {
+
+      idx = inst_arr[rand_below(afl, inst_num)];
+
+      if (afl->pass_stats[TAINT_CMP][tmp[idx]->id].total >= CMPLOG_FAIL_MAX ||
+          afl->pass_stats[TAINT_CMP][tmp[idx]->id].faileds >= CMPLOG_FAIL_MAX)
+        continue;
+      
+      if (taint_havoc(afl, buf, orig_buf, len, (++j) * inst_stage_max, idx, mode)) return 1;
+      
+      afl->pass_stats[TAINT_CMP][tmp[idx]->id].total++;
+
+    }
+
+    ck_free(inst_arr);
+
+  }
+  else {
+
+    j = 0;
+    for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
+  
+      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;
+      
+      if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= CMPLOG_FAIL_MAX ||
+          afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= CMPLOG_FAIL_MAX)
+        continue;
+
+      if (taint_havoc(afl, buf, orig_buf, len, (++j) * inst_stage_max, i, mode)) return 1;
+
+      afl->pass_stats[TAINT_CMP][tmp[i]->id].total++;
+
+    }
 
   }
   
