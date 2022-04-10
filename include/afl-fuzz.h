@@ -169,6 +169,7 @@ struct tainted_info {
   u32 hits;
   u8  inst_type; // inst. type
   u8  type; // tainted operand/argument type
+  u8  attr;
   u64 ret_addr;
   struct tainted *taint;
 
