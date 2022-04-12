@@ -6,6 +6,8 @@
 #define SLIGHT_TAINTED 8
 #define MIN_TAINTED_HAVOC 32
 
+#define SWAPA(_x) ((_x & 0xf8) + ((_x & 7) ^ 0x07))
+
 struct taint_operations {
 
   void (*check_unstable)(afl_state_t *afl);
@@ -1622,7 +1624,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
 }
 
 // cmplog mode instruction inference
-void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
+void ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32 ofs, u32 i, u32 loggeds) {
   
   struct cmp_operands *o = NULL, *orig_o = NULL;
   struct cmp_header   *h = NULL;
@@ -1636,6 +1638,9 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
   u8  s_v0_fixed = 1, s_v1_fixed = 1;
   u8  s_v0_inc = 1, s_v1_inc = 1;
   u8  s_v0_dec = 1, s_v1_dec = 1;
+
+  u32 taint_len = 8;
+  u8 status;
 
   h = &afl->shm.cmp_map->headers[i];  
   hshape = SHAPE_BYTES(h->shape);
@@ -1713,13 +1718,24 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
         add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs, TAINT_SECTION, h->attribute);
-          
+        
+        cmp_extend_encodingN(
+                  afl, h, s128_v0, s128_v1, orig_s128_v0, orig_s128_v1,
+                  h->attribute, ofs, taint_len, orig_buf, buf, cbuf, len, 1,
+                  3, &status);
+
       }
+      
       if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
         add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs, TAINT_SECTION, h->attribute);
+
+        cmp_extend_encodingN(
+                  afl, h, s128_v1, s128_v0, orig_s128_v1, orig_s128_v0,
+                  SWAPA(h->attribute), ofs, taint_len, orig_buf, buf, cbuf, len,
+                  1, 3, &status);
 
       }
 
@@ -1732,16 +1748,26 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
         add_cmp_tainted_info(afl, i, j, CMP_V0, ofs, TAINT_SECTION, h->attribute);
-     
+
+      cmp_extend_encoding(
+                afl, h, o->v0, o->v1, orig_o->v0, orig_o->v1, h->attribute, ofs,
+                1, orig_buf, buf, cbuf, len, 1, 3, &status);
+
     }
+
     if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
           add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
         add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, TAINT_SECTION, h->attribute);
       
+      cmp_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1,
+                                         orig_o->v0, SWAPA(h->attribute), ofs,
+                                         taint_len, orig_buf, buf, cbuf, len, 1,
+                                         3, &status);
+
     }
-  
+
   ins_inference_next_iter:
     continue;
 
@@ -1756,10 +1782,13 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
 
 }
 
-void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
+void rtn_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32 ofs, u32 i, u32 loggeds) {
 
   struct cmpfn_operands *o = NULL, *orig_o = NULL;
   struct cmp_header     *h = NULL;
+
+  u32 taint_len = 8;
+  u8 status;
 
   h = &afl->shm.cmp_map->headers[i];
 
@@ -1799,6 +1828,15 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       
     }
 
+    rtn_extend_encoding(afl, 0, o, orig_o, ofs, taint_len,
+                                       orig_buf, buf, cbuf, len, 3,
+                                       &status); 
+
+
+    rtn_extend_encoding(afl, 1, o, orig_o, ofs, taint_len,
+                                       orig_buf, buf, cbuf, len, 3,
+                                       &status);
+
     rtn_inference_next_iter:
       continue;
 
@@ -1806,7 +1844,7 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
 
 }
 
-void cmp_inference(afl_state_t *afl, u32 ofs) {
+void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32 ofs) {
   
   u32 loggeds;
 
@@ -1817,9 +1855,9 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     if (!loggeds) continue;
     
     // skip inst. which fails too many times
-    /*if (afl->pass_stats[TAINT_CMP][i].faileds >= CMPLOG_FAIL_MAX || 
+    if (afl->pass_stats[TAINT_CMP][i].faileds >= CMPLOG_FAIL_MAX || 
         afl->pass_stats[TAINT_CMP][i].total >= CMPLOG_FAIL_MAX) 
-      continue;*/
+      continue;
 
     if (loggeds > CMP_MAP_H) 
       loggeds = CMP_MAP_H;
@@ -1827,12 +1865,12 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
 
-      ins_inference(afl, ofs, i, loggeds);
+      ins_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
 
     }
     else {
 
-      rtn_inference(afl, ofs, i, loggeds);
+      rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
 
     }
 
@@ -2160,16 +2198,25 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   u32 sect;
-  // orig exec
- 
+  u64 orig_hit_cnt, new_hit_cnt, orig_execs;
+
+  orig_hit_cnt = afl->queued_items + afl->saved_crashes;
+  orig_execs = afl->fsrv.total_execs;
+
+#ifdef CMPLOG_COMBINE
+  u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
+  memcpy(cbuf, orig_buf, len);
+  u8 *virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
+  memcpy(virgin_backup, afl->virgin_bits, afl->shm.map_size);
+#else
+  u8 *cbuf = NULL;
+#endif
+
   // Reset bitmap before each execution.
   memset(taint_mode.map, 0, taint_mode.map_size);
   if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
   
   memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
-
-  // orig cksum
-  // cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
 
   // check unstable
   memset(taint_mode.map, 0, taint_mode.map_size);
@@ -2201,7 +2248,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
       // byte-level mutate
       for(u32 k = 0; k < TAINT_SECTION; k++)
-        byte_level_mutate(afl, buf, i, j); 
+        byte_level_mutate(afl, buf, i + k, j); 
 
       /**
        * execution path check
@@ -2247,7 +2294,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       //if (exec_cksum != cksum) goto taint_next_iterator;
 
       // infer result
-      (*taint_mode.ops.inference)(afl, i);
+      cmp_inference(afl, buf, orig_buf, len, cbuf, i);
       
       // reset buffer
       for(u32 k = 0; k < sect; k++)
@@ -2256,6 +2303,63 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     }
 
   }
+
+  #ifdef CMPLOG_COMBINE
+  if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
+
+    // copy the current virgin bits so we can recover the information
+    u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
+    memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
+    // reset virgin bits to the backup previous to redqueen
+    memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
+
+    u8 status = 0;
+    its_fuzz(afl, cbuf, len, &status);
+
+  // now combine with the saved virgin bits
+  #ifdef WORD_SIZE_64
+    u64 *v = (u64 *)afl->virgin_bits;
+    u64 *s = (u64 *)virgin_save;
+    u32  i;
+    for (i = 0; i < (afl->shm.map_size >> 3); i++) {
+
+      v[i] &= s[i];
+
+    }
+
+  #else
+    u32 *v = (u32 *)afl->virgin_bits;
+    u32 *s = (u32 *)virgin_save;
+    u32  i;
+    for (i = 0; i < (afl->shm.map_size >> 2); i++) {
+
+      v[i] &= s[i];
+
+    }
+
+  #endif
+
+  #ifdef _DEBUG
+    dump("COMB", cbuf, len);
+    if (status == 1) {
+
+      fprintf(stderr, "NEW CMPLOG_COMBINED\n");
+
+    } else {
+
+      fprintf(stderr, "NO new combined\n");
+
+    }
+
+  #endif
+
+  }
+
+#endif
+
+  new_hit_cnt = afl->queued_items + afl->saved_crashes;
+  afl->stage_finds[STAGE_ITS_PLUS] += new_hit_cnt - orig_hit_cnt;
+  afl->stage_cycles[STAGE_ITS_PLUS] += afl->fsrv.total_execs - orig_execs;
 
   return 0;
 
@@ -2286,7 +2390,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
 
     taint_mode.ops.check_unstable = cmp_check_unstable;
     taint_mode.ops.common_fuzz_staff = common_fuzz_cmplog_stuff;
-    taint_mode.ops.inference = cmp_inference;
+    // taint_mode.ops.inference = cmp_inference;
     taint_mode.map = afl->shm.cmp_map;
     
     // set cmplog fsrv timeout

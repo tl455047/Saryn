@@ -513,7 +513,7 @@ checksum_fail:
 
 ///// Input to State replacement
 
-static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
+u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -746,7 +746,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 //#endif
 
-static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
@@ -1422,7 +1422,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 #ifdef WORD_SIZE_64
 
-static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u128 pattern, u128 repl, u128 o_pattern,
                                u128 changed_val, u8 attr, u32 idx,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
@@ -1910,7 +1910,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 }
 
-static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
+u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
                               struct cmpfn_operands *o,
                               struct cmpfn_operands *orig_o, u32 idx,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,

@@ -298,6 +298,7 @@ enum {
   /* 22 */ STAGE_TAINT_LS,
   /* 23 */ STAGE_SYMBOLIC,
   /* 24 */ STAGE_SYMBOLIC_SEED,
+  /* 25 */ STAGE_ITS_PLUS,
   STAGE_NUM_MAX
 
 };
@@ -1283,6 +1284,26 @@ void kill_all_dead_symbolic();
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
+
+u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status);
+
+u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+                               u128 pattern, u128 repl, u128 o_pattern,
+                               u128 changed_val, u8 attr, u32 idx,
+                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                               u32 len, u8 do_reverse, u8 lvl, u8 *status);
+
+u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+                              u64 pattern, u64 repl, u64 o_pattern,
+                              u64 changed_val, u8 attr, u32 idx, u32 taint_len,
+                              u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
+                              u8 do_reverse, u8 lvl, u8 *status);
+
+u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
+                              struct cmpfn_operands *o,
+                              struct cmpfn_operands *orig_o, u32 idx,
+                              u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                              u32 len, u8 lvl, u8 *status);
 
 /* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);

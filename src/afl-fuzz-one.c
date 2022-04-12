@@ -572,7 +572,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     
   }
   
-  if (unlikely(afl->shm.cmplog_mode &&
+  /*if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
 
@@ -598,7 +598,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
-  }
+  }*/
   
   // taint havoc
   if (afl->shm.cmplog_mode &&
