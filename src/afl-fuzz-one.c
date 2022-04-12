@@ -600,6 +600,19 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
   
+  // taint havoc
+  if (afl->shm.cmplog_mode &&
+      (u32)len <= afl->cmplog_max_filesize) {
+    
+    if (!afl->queue_cur->taint_cur[TAINT_CMP] && 
+        !afl->queue_cur->taint_failed[TAINT_CMP]) 
+      taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
+
+    if (afl->queue_cur->taint_cur[TAINT_CMP])
+      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
+    
+  }
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs
@@ -2816,19 +2829,6 @@ havoc_stage:
 
     afl->stage_finds[STAGE_SYMBOLIC_SEED] += new_hit_cnt - orig_hit_cnt;
 
-  }
-
-  // taint havoc
-  if (!splice_cycle && afl->shm.cmplog_mode &&
-      (u32)len <= afl->cmplog_max_filesize) {
-    
-    if (!afl->queue_cur->taint_cur[TAINT_CMP] && 
-        !afl->queue_cur->taint_failed[TAINT_CMP]) 
-      taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
-
-    if (afl->queue_cur->taint_cur[TAINT_CMP])
-      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
-    
   }
 
 #ifndef IGNORE_FINDS

@@ -530,5 +530,7 @@
 /* symbolic timeout */
 #define SYMBOLIC_TIMEOUT 3600000
 
+#define TAINT_SECTION 1
+
 #endif                                                  /* ! _HAVE_CONFIG_H */
 

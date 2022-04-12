@@ -185,7 +185,7 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
   if (end + 1 == pos) {
     
-    taint->len += 1;
+    taint->len += len;
   
   }
   else if (pos > end) {
@@ -204,7 +204,7 @@ static struct tainted* add_tainted(struct tainted *taint, u32 pos, u32 len) {
 
 }
 
-static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u8 attr) {
+static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u32 ofs, u32 len, u8 attr) {
   
   struct tainted_info *new_info;
   struct cmp_map *c_map = afl->shm.cmp_map;
@@ -219,7 +219,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->attr = attr;
     new_info->ret_addr = c_map->ret_addr[id];
 
-    new_info->taint = add_tainted(new_info->taint, ofs, 1);
+    new_info->taint = add_tainted(new_info->taint, ofs, len);
 
     (*afl->tmp_tainted)[id][hits] = new_info;
 
@@ -229,7 +229,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
   else {
 
     (*afl->tmp_tainted)[id][hits]->taint = 
-      add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, 1);
+      add_tainted((*afl->tmp_tainted)[id][hits]->taint, ofs, len);
 
   }
 
@@ -1711,15 +1711,15 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
       if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
 
         afl->queue_cur->c_bytes[TAINT_CMP] = 
-          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs, h->attribute);
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+        add_cmp_tainted_info(afl, i, j, CMP_V0_128, ofs, TAINT_SECTION, h->attribute);
           
       }
       if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
-          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs, h->attribute);
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+        add_cmp_tainted_info(afl, i, j, CMP_V1_128, ofs, TAINT_SECTION, h->attribute);
 
       }
 
@@ -1730,15 +1730,15 @@ void ins_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
     if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
-          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V0, ofs, h->attribute);
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+        add_cmp_tainted_info(afl, i, j, CMP_V0, ofs, TAINT_SECTION, h->attribute);
      
     }
     if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
-          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-        add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, h->attribute);
+          add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+        add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, TAINT_SECTION, h->attribute);
       
     }
   
@@ -1760,6 +1760,8 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
 
   struct cmpfn_operands *o = NULL, *orig_o = NULL;
   struct cmp_header     *h = NULL;
+
+  h = &afl->shm.cmp_map->headers[i];
 
   for(u32 j = 0; j < loggeds; j++) {
         
@@ -1784,16 +1786,16 @@ void rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
     if (o->v0_len != orig_o->v0_len || memcmp(o->v0, orig_o->v0, sizeof(struct cmpfn_operands))) {
 
       afl->queue_cur->c_bytes[TAINT_CMP] = 
-        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs, h->attribute);
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs, TAINT_SECTION, h->attribute);
      
     }
 
     if (o->v1_len != orig_o->v1_len || memcmp(o->v1, orig_o->v1, sizeof(struct cmpfn_operands))) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
-        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, 1);
-      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, h->attribute);
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
+      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, TAINT_SECTION, h->attribute);
       
     }
 
@@ -1830,7 +1832,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     }
     else {
 
-      //rtn_inference(afl, ofs, i, loggeds);
+      rtn_inference(afl, ofs, i, loggeds);
 
     }
 
@@ -2157,7 +2159,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
 u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
-  // u64 cksum, exec_cksum;
+  u32 sect;
   // orig exec
  
   // Reset bitmap before each execution.
@@ -2176,13 +2178,18 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   (*taint_mode.ops.check_unstable)(afl);
  
   // taint
-  for(u32 i = 0; i < len; i++) {
+  for(u32 i = 0; i < len; i += TAINT_SECTION) {
+
+    if (len - i < TAINT_SECTION)
+      sect = len - i;
+    else 
+      sect = TAINT_SECTION;
 
     afl->stage_cur_byte = i;     
     // for each mutator
     for(u32 j = 0; j < TAINT_INFER_MUTATOR_NUM; j++) { 
       
-      afl->stage_cur++;
+      afl->stage_cur += TAINT_SECTION;
       //update stat
       if (!(afl->stage_cur % afl->stats_update_freq) ||
         afl->stage_cur + 1 == afl->stage_max) {
@@ -2191,8 +2198,11 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
         show_stats(afl);
    
       }
+
       // byte-level mutate
-      byte_level_mutate(afl, buf, i, j); 
+      for(u32 k = 0; k < TAINT_SECTION; k++)
+        byte_level_mutate(afl, buf, i, j); 
+
       /**
        * execution path check
        * 
@@ -2228,9 +2238,6 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, buf, len))) {
 
         if (afl->stop_soon) return 1;
-        // reset buffer
-        // buf[i] = orig_buf[i];
-        // continue;
 
       }
       
@@ -2243,7 +2250,8 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       (*taint_mode.ops.inference)(afl, i);
       
       // reset buffer
-      buf[i] = orig_buf[i];
+      for(u32 k = 0; k < sect; k++)
+        buf[i + k] = orig_buf[i + k];
 
     }
 
