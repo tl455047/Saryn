@@ -461,6 +461,7 @@ struct afl_pass_stat {
 
   u8 total;
   u8 faileds;
+  u8 tainted;
 
 };
 
@@ -1304,6 +1305,10 @@ u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
                               struct cmpfn_operands *orig_o, u32 idx,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
                               u32 len, u8 lvl, u8 *status);
+
+void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape);
+
+void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size);
 
 /* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);

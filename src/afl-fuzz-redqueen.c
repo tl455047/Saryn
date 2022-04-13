@@ -1517,7 +1517,7 @@ u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
 #endif
 
-static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
+void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   u8 *b = (u8 *)&v;
 
@@ -1568,7 +1568,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 }
 
 #ifdef WORD_SIZE_64
-static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
+void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
   u8 *b = (u8 *)&v;
 
