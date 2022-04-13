@@ -1815,6 +1815,13 @@ u8 ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
     }
 
+    if (status == 1) {
+
+      found_one = 1;
+      goto ins_inference_next_iter;
+
+    }
+
     // we only learn 16 bit +
     if (hshape > 1) {
 
@@ -1946,6 +1953,13 @@ u8 rtn_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
     }
 
+    if (status == 1) {
+
+      found_one = 1;
+      goto rtn_inference_next_iter;
+
+    }
+    
     if (found_one || afl->queue_cur->is_ascii) {
 
       // if (unlikely(!afl->its_pass_stats[key].total)) {
