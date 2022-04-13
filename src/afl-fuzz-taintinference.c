@@ -1709,6 +1709,8 @@ void ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
 
 #endif
 
+    status = 0;
+        
 #ifdef WORD_SIZE_64
     if (is_n) {  // _ExtInt special case including u128
 
@@ -1726,6 +1728,8 @@ void ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
 
       }
       
+      status = 0;
+        
       if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
         
         afl->queue_cur->c_bytes[TAINT_CMP] = 
@@ -1743,6 +1747,8 @@ void ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
 
 #endif
     
+    status = 0;
+        
     if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
@@ -1755,6 +1761,8 @@ void ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
 
     }
 
+    status = 0;
+        
     if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
       
       afl->queue_cur->c_bytes[TAINT_CMP] = 
@@ -1828,10 +1836,13 @@ void rtn_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
       
     }
 
+    status = 0;
+        
     rtn_extend_encoding(afl, 0, o, orig_o, ofs, taint_len,
                                        orig_buf, buf, cbuf, len, 3,
                                        &status); 
-
+    
+    status = 0;
 
     rtn_extend_encoding(afl, 1, o, orig_o, ofs, taint_len,
                                        orig_buf, buf, cbuf, len, 3,
