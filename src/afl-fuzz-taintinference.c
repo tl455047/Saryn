@@ -420,7 +420,8 @@ static inline u32 choose_block_len(afl_state_t *afl, u32 limit) {
 
 }
 
-u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, struct tainted *taint) {
+u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 orig_len, 
+  u32 stage_max, struct tainted *taint) {
    
   struct tainted *t; 
   s32 r_part;
@@ -792,7 +793,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len, u32 stage_max, 
     // execute
     if (unlikely(common_fuzz_stuff(afl, buf, len))) { return 1; }
     //restore buf
-    memcpy(buf, orig_buf, len);
+    memcpy(buf, orig_buf, MIN((u32)(len), (u32)(orig_len)));
     
   }
 
@@ -1764,14 +1765,16 @@ u8 ins_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
     }
 
     // maybe is input length
-    if (o->v0 == orig_o->v0 && o->v0 != o->v1 && (u32)(o->v0) == len) {
+    if (o->v0 == orig_o->v0 && o->v0 != o->v1 && (u32)(o->v0) == len 
+          && o->v1 <= afl->cmplog_max_filesize && o->v1 > 100) {
       
       add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, TAINT_SECTION, h->attribute);
       (*afl->tmp_tainted)[i][j]->maybe_len = (u32)(o->v1);
 
     }
 
-    if (o->v1 == orig_o->v1 && o->v0 != o->v1 && (u32)(o->v1) == len) {
+    if (o->v1 == orig_o->v1 && o->v0 != o->v1 && (u32)(o->v1) == len
+          && o->v0 <= afl->cmplog_max_filesize && o->v0 > 100) {
 
       add_cmp_tainted_info(afl, i, j, CMP_V1, ofs, TAINT_SECTION, h->attribute);
       (*afl->tmp_tainted)[i][j]->maybe_len = (u32)(o->v0);
@@ -1985,21 +1988,6 @@ u8 rtn_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
         add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, TAINT_SECTION);
       add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, TAINT_SECTION, h->attribute);
       
-    }
-
-    // maybe is input length
-    if (o->v0_len == orig_o->v0_len && o->v0_len != o->v1_len && (u32)(o->v0_len) == len) {
-      
-      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs, TAINT_SECTION, h->attribute);
-      (*afl->tmp_tainted)[i][j]->maybe_len = (u32)(o->v1_len);
-
-    }
-
-    if (o->v1_len == orig_o->v1_len && o->v0_len != o->v1_len && (u32)(o->v1_len) == len) {
-
-      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, TAINT_SECTION, h->attribute);
-      (*afl->tmp_tainted)[i][j]->maybe_len = (u32)(o->v0_len);
-
     }
 
     for(u32 k = 0; k < sect; k++) {
@@ -2247,7 +2235,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   // tainted part only mutation
   u64 orig_hit_cnt, new_hit_cnt, orig_execs;
-  u32 inst_stage_max, j;
+  u32 inst_stage_max, j, r;
   
   afl->stage_name = "taint havoc";
   afl->stage_short = "th";
@@ -2280,31 +2268,53 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
         memcpy(buf, orig_buf, len);
 
-        if (taint_havoc(afl, buf, orig_buf, len, (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
+        if (taint_havoc(afl, buf, orig_buf, len, len, 
+              (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
       
       }
       else {
-        
-        u8 *new_buf =
-                afl_realloc(AFL_BUF_PARAM(out_scratch), tmp[idx]->maybe_len);
-        if (unlikely(!new_buf)) { PFATAL("alloc"); }
-
-        if (tmp[idx]->maybe_len > len) {
-
-          memcpy(new_buf, orig_buf, len);
-
-          memset(new_buf + len, 0, tmp[idx]->maybe_len - len);
-
-        }
-        else {
-
-          memcpy(new_buf, orig_buf, tmp[idx]->maybe_len);
-
-        }
-
-        if (taint_havoc(afl, new_buf, orig_buf, MIN((u32)(tmp[idx]->maybe_len), (u32)(len)), 
-            (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
       
+        r = rand_below(afl, 11);
+
+        switch(r) {
+
+          case 0 ... 8: {
+            
+            fprintf(stderr, "len fuzz: %u\n", tmp[idx]->maybe_len);
+
+            u8 *new_buf = afl_realloc(AFL_BUF_PARAM(out_scratch), tmp[idx]->maybe_len);
+            if (unlikely(!new_buf)) { PFATAL("alloc"); }
+            
+            if (tmp[idx]->maybe_len > len) {
+
+              memcpy(new_buf, orig_buf, len);
+              memset(new_buf + len, 0, tmp[idx]->maybe_len - len);
+              
+            }
+            else {
+
+              memcpy(new_buf, orig_buf, tmp[idx]->maybe_len);
+
+            }
+
+            if (taint_havoc(afl, new_buf, orig_buf, tmp[idx]->maybe_len, len, 
+              (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
+            
+            break;
+
+          }
+          case 9 ... 10: {
+
+            memcpy(buf, orig_buf, len);
+
+            if (taint_havoc(afl, buf, orig_buf, len, len, 
+                  (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
+            break;
+
+          }
+
+        }
+
       }
     
       /*if (afl->pass_stats[mode][tmp[idx]->id].total < 0xff)
@@ -2327,7 +2337,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
       memcpy(buf, orig_buf, len);
       
-      if (taint_havoc(afl, buf, orig_buf, len, (++j) * inst_stage_max, tmp[i]->taint)) return 1;
+      if (taint_havoc(afl, buf, orig_buf, len, len, 
+        (++j) * inst_stage_max, tmp[i]->taint)) return 1;
 
       /*if (afl->pass_stats[mode][tmp[i]->id].total < 0xff)
         afl->pass_stats[mode][tmp[i]->id].total++;*/
@@ -2340,7 +2351,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   memcpy(buf, orig_buf, len);
       
-  if (taint_havoc(afl, buf, orig_buf, len, (j + 4) * inst_stage_max, afl->queue_cur->c_bytes[mode])) return 1;
+  if (taint_havoc(afl, buf, orig_buf, len, len, 
+    (j + 4) * inst_stage_max, afl->queue_cur->c_bytes[mode])) return 1;
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_TAINT_HAVOC] += new_hit_cnt - orig_hit_cnt;
