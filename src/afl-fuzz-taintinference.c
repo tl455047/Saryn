@@ -5,8 +5,8 @@
 
 #define SLIGHT_TAINTED 8
 #define MIN_TAINTED_HAVOC 32
-#define LINEAR_TIME 4
-#define PASS_TIME 4
+#define LINEAR_TIME 32
+#define PASS_TIME 8
 
 #define SWAPA(_x) ((_x & 0xf8) + ((_x & 7) ^ 0x07))
 
@@ -1613,17 +1613,6 @@ void update_state(afl_state_t *afl, u8 mode) {
   if (!afl->tainted_len)   
     update_c_bytes_len(afl, mode);
 
-  // update tainted inst.
-  tmp = afl->queue_cur->taint[mode];
-  for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
-    
-    if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
-      continue;
-
-    afl->ht_tainted[tmp[i]->inst_type] += 1;
-
-  }
-
   afl->taint_mode = mode;
 
 }
@@ -1953,8 +1942,8 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     // or both side of basic block is stepped
     if (afl->pass_stats[TAINT_CMP][i].faileds >= LINEAR_TIME || 
         afl->pass_stats[TAINT_CMP][i].total >= LINEAR_TIME || 
-        (afl->pass_stats[TAINT_CMP][i].cond >= PASS_TIME && 
-         afl->pass_stats[TAINT_CMP][i].compl >= PASS_TIME))
+       (afl->pass_stats[TAINT_CMP][i].cond >= PASS_TIME && 
+        afl->pass_stats[TAINT_CMP][i].compl >= PASS_TIME))
       continue;
     
     if (loggeds > CMP_MAP_H) 
@@ -1968,7 +1957,7 @@ void cmp_inference(afl_state_t *afl, u32 ofs) {
     }
     else {
 
-      rtn_inference(afl, ofs, i, loggeds);
+      // rtn_inference(afl, ofs, i, loggeds);
     
     }
 
@@ -2096,6 +2085,7 @@ void mem_inference(afl_state_t *afl, u32 ofs) {
 u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {  
   
   struct tainted_info **tmp;
+  u32 idx;
 
   update_state(afl, mode);
 
@@ -2118,7 +2108,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     
     inst_stage_max = MIN_TAINTED_HAVOC;
     
-    u32 idx, k;
+    u32 k;
     j = 0;
     for(u32 i = 0; i < afl->stage_max / inst_stage_max; i++) {
 
@@ -2135,14 +2125,11 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       
       }
       
-        memcpy(buf, orig_buf, len);
+      memcpy(buf, orig_buf, len);
 
-        if (taint_havoc(afl, buf, orig_buf, len, 
-              (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
+      if (taint_havoc(afl, buf, orig_buf, len, 
+          (++j) * inst_stage_max, tmp[idx]->taint)) return 1;
     
-      /*if (afl->pass_stats[mode][tmp[idx]->id].total < 0xff)
-        afl->pass_stats[mode][tmp[idx]->id].total++;*/
-
     }
 
   }
@@ -2154,17 +2141,16 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
         continue;
       
-      if (afl->pass_stats[mode][tmp[i]->id].total >= LINEAR_TIME ||
-          afl->pass_stats[mode][tmp[i]->id].faileds >= LINEAR_TIME)
-        continue;
+      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME ||
+          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME || 
+         (afl->pass_stats[mode][tmp[idx]->id].cond >= PASS_TIME &&
+          afl->pass_stats[mode][tmp[idx]->id].compl >= PASS_TIME))
+      continue;
 
       memcpy(buf, orig_buf, len);
       
       if (taint_havoc(afl, buf, orig_buf, len, 
-        (++j) * inst_stage_max, tmp[i]->taint)) return 1;
-
-      /*if (afl->pass_stats[mode][tmp[i]->id].total < 0xff)
-        afl->pass_stats[mode][tmp[i]->id].total++;*/
+            (++j) * inst_stage_max, tmp[i]->taint)) return 1;
 
     }
 
@@ -2175,7 +2161,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   memcpy(buf, orig_buf, len);
       
   if (taint_havoc(afl, buf, orig_buf, len, 
-    (j + 4) * inst_stage_max, afl->queue_cur->c_bytes[mode])) return 1;
+        (j + 4) * inst_stage_max, afl->queue_cur->c_bytes[mode])) return 1;
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_TAINT_HAVOC] += new_hit_cnt - orig_hit_cnt;
@@ -2190,30 +2176,12 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
-
-  if (afl->queue_cur->taint_cur[mode] <= 64) {
-
-    r_max = afl->queue_cur->taint_cur[mode];
-
-  }
-  else {
-
-    r_max = MIN((u32)(afl->queue_cur->taint_cur[mode] / 2), 
-      (u32)(1 << (2 + rand_below(afl, 5))));
-
-  }
-
-  afl->stage_max = r_max;
-  afl->stage_cur = 0;
   
-  afl->stage_max = afl->queue_cur->taint_cur[mode];
-
-  memset(taint_mode.orig_map, 0, taint_mode.map_size);
-  if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, buf, len))) return 1;
-  memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
-
   u8 *queue_fn = "";
   FILE *f;
+  
+  afl->stage_max = afl->queue_cur->taint_cur[mode];
+  afl->stage_cur = 0;
       
   queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ls,debug", 
     afl->out_dir, afl->queue_cur->id);
@@ -2221,32 +2189,22 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   f = create_ffile(queue_fn);
  
   for(; afl->stage_cur < afl->stage_max; afl->stage_cur++) {
-    
-    /*r = rand_below(afl, afl->queue_cur->taint_cur[mode]);
-    
-    u32 k = 0;
-    while((afl->pass_stats[mode][tmp[r]->id].total >= LINEAR_TIME ||
-             afl->pass_stats[mode][tmp[r]->id].faileds >= LINEAR_TIME ||
-            (afl->pass_stats[mode][tmp[r]->id].cond >= PASS_TIME &&
-             afl->pass_stats[mode][tmp[r]->id].compl >= PASS_TIME)) &&
-             k++ < afl->stage_max / inst_stage_max) {
-      
-      r = rand_below(afl, afl->queue_cur->taint_cur[mode]);
-      
-    }*/
-    r = afl->stage_cur;
+     
+    idx = afl->stage_cur;
 
     fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
           tmp[r]->id, tmp[r]->hits, tmp[r]->type, tmp[r]->inst_type, tmp[r]->attr);
   
-    if (afl->pass_stats[mode][r].total >= LINEAR_TIME ||
-          afl->pass_stats[mode][r].faileds >= LINEAR_TIME)
+    if (afl->pass_stats[mode][idx].total >= LINEAR_TIME ||
+        afl->pass_stats[mode][idx].faileds >= LINEAR_TIME || 
+       (afl->pass_stats[mode][idx].cond >= PASS_TIME &&
+        afl->pass_stats[mode][idx].compl >= PASS_TIME))
       continue;
 
     memcpy(buf, orig_buf, len);
     
     if (tmp[r]->inst_type == CMP_TYPE_INS && 
-             (tmp[r]->type == CMP_V0 || tmp[r]->type == CMP_V1)) {
+       (tmp[r]->type == CMP_V0 || tmp[r]->type == CMP_V1)) {
 
       if (cmp_linear_search(afl, buf, len, r, f)) {
         // condition solved, update total
@@ -2263,7 +2221,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
     }
     else if (tmp[r]->inst_type == CMP_TYPE_INS &&
-             (tmp[r]->type == CMP_V0_128 || tmp[r]->type == CMP_V1_128)) {
+            (tmp[r]->type == CMP_V0_128 || tmp[r]->type == CMP_V1_128)) {
       
       // u128 not yet handling
       continue;
@@ -2302,8 +2260,6 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
 
-  //cksum = hash64(taint_mode.fsrv->trace_bits, taint_mode.fsrv_map_size, HASH_CONST);
-      
   // check unstable
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
@@ -2410,8 +2366,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
   // reset state info
   afl->tainted_len = 0;
   afl->cur_tainted_len = len;
-  
-  memset(afl->ht_tainted, 0, MEMLOG_HOOK_NUM * sizeof(u32));
+
   
   if (mode == TAINT_CMP) {
   
@@ -2422,10 +2377,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     taint_mode.ops.common_fuzz_staff = common_fuzz_cmplog_stuff;
     taint_mode.ops.inference = cmp_inference;
     taint_mode.map = afl->shm.cmp_map;
-    
-    // set cmplog fsrv timeout
-    // ensure taint inference completed
-    // afl->cmplog_fsrv.exec_tmout = TAINT_CMP_TIMEOUT;
+  
 
     if (unlikely(!afl->orig_cmp_map)) {
 
@@ -2461,8 +2413,6 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     taint_mode.fsrv_map_size = afl->memlog_fsrv.map_size;
 
   }
-  // reset orig map
-  memset(taint_mode.orig_map, 0, taint_mode.map_size);
     
   // set pass stats
   if (unlikely(!afl->pass_stats[mode])) {
