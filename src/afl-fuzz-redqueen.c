@@ -513,7 +513,7 @@ checksum_fail:
 
 ///// Input to State replacement
 
-static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
+u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -746,7 +746,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 //#endif
 
-static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
@@ -1422,7 +1422,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 #ifdef WORD_SIZE_64
 
-static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u128 pattern, u128 repl, u128 o_pattern,
                                u128 changed_val, u8 attr, u32 idx,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
@@ -1517,7 +1517,7 @@ static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
 #endif
 
-static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
+void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   u8 *b = (u8 *)&v;
 
@@ -1568,7 +1568,7 @@ static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 }
 
 #ifdef WORD_SIZE_64
-static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
+void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
   u8 *b = (u8 *)&v;
 

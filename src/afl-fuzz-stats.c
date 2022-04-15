@@ -1210,16 +1210,17 @@ void show_stats(afl_state_t *afl) {
   int ofs;
   if (afl->shm.memlog_mode || afl->shm.cmplog_mode) {
 
-    ofs = sprintf(tmp, "%s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
+   ofs = sprintf(tmp, "%s/%s, %s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(2), afl->stage_finds[STAGE_TAINT_LS]),
-                                u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]));
-
+                                u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]),
+                                u_stringify_int(IB(4), afl->stage_finds[STAGE_ITS_PLUS]),
+                                u_stringify_int(IB(5), afl->stage_cycles[STAGE_ITS_PLUS]));
     if (afl->symbolic_mode) {
     
-      sprintf(tmp + ofs, ", %s/%s/%s", u_stringify_int(IB(4), afl->stage_finds[STAGE_SYMBOLIC]),
-                                       u_stringify_int(IB(5), afl->stage_finds[STAGE_SYMBOLIC_SEED]),
-                                       u_stringify_int(IB(6), afl->stage_cycles[STAGE_SYMBOLIC]));
+      sprintf(tmp + ofs, ", %s/%s/%s", u_stringify_int(IB(6), afl->stage_finds[STAGE_SYMBOLIC]),
+                                       u_stringify_int(IB(7), afl->stage_finds[STAGE_SYMBOLIC_SEED]),
+                                       u_stringify_int(IB(8), afl->stage_cycles[STAGE_SYMBOLIC]));
       
       SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/symb : " cRST "%-36s " bSTG bV"\n", tmp);
 
@@ -1253,12 +1254,6 @@ void show_stats(afl_state_t *afl) {
     sprintf(tmp, "%d/%d/%d", afl->solved_inst, afl->failed_inst, afl->unsolved_inst);
     SAYF(bV bSTOP "  pass stats : "  cRST "%-36s " bSTG bV"\n", tmp);
     
-    /*for (u32 i = 1; i < MEMLOG_HOOK_NUM; i++) {
-      
-      sprintf(tmp, "%d", afl->ht_tainted[i]);
-      SAYF(bV bSTOP " ht%u tainted : "  cRST "%-36s " bSTG bV"\n", i, tmp); 
-
-    }*/
 
   }
 
