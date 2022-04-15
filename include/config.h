@@ -512,7 +512,7 @@
 
 /* Taint Inference number of mutators */
 
-#define TAINT_INFER_MUTATOR_NUM 1
+#define TAINT_INFER_MUTATOR_NUM 2
 
 /* Memlog hook num */
 

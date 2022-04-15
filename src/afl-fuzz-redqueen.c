@@ -513,7 +513,7 @@ checksum_fail:
 
 ///// Input to State replacement
 
-u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
+static u8 its_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
 
   u64 orig_hit_cnt, new_hit_cnt;
 
@@ -746,7 +746,7 @@ static void to_base64(u8 *src, u8 *dst, u32 dst_len) {
 
 //#endif
 
-u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
+static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u64 pattern, u64 repl, u64 o_pattern,
                               u64 changed_val, u8 attr, u32 idx, u32 taint_len,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
@@ -1422,7 +1422,7 @@ u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
 #ifdef WORD_SIZE_64
 
-u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
+static u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
                                u128 pattern, u128 repl, u128 o_pattern,
                                u128 changed_val, u8 attr, u32 idx,
                                u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
@@ -1517,7 +1517,7 @@ u8 cmp_extend_encodingN(afl_state_t *afl, struct cmp_header *h,
 
 #endif
 
-void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
+static void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 
   u8 *b = (u8 *)&v;
 
@@ -1568,7 +1568,7 @@ void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape) {
 }
 
 #ifdef WORD_SIZE_64
-void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
+static void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size) {
 
   u8 *b = (u8 *)&v;
 
@@ -1910,7 +1910,7 @@ static u8 cmp_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
 
 }
 
-u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
+static u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
                               struct cmpfn_operands *o,
                               struct cmpfn_operands *orig_o, u32 idx,
                               u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
@@ -2672,7 +2672,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
   // Generate the cmplog data
 
   // manually clear the full cmp_map
-  memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map));
+  memset(afl->shm.cmp_map, 0, sizeof(struct cmp_map) - sizeof(struct cmp_extra));
   if (unlikely(common_fuzz_cmplog_stuff(afl, orig_buf, len))) {
 
     afl->queue_cur->colorized = CMPLOG_LVL_MAX;
@@ -2694,7 +2694,7 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
   }
 
-  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map) - sizeof(struct cmp_extra));
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) {
 

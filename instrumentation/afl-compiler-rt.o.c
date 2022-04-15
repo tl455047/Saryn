@@ -1583,10 +1583,20 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1597,7 +1607,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 0;
     
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1615,10 +1625,20 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1629,7 +1649,7 @@ void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 1;
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1655,10 +1675,20 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook4 arg0=%x arg1=%x attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1669,7 +1699,7 @@ void __cmplog_ins_hook4(uint32_t arg1, uint32_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 3;
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1695,10 +1725,20 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook8 arg0=%lx arg1=%lx attr=%u\n", arg1, arg2, attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1709,7 +1749,7 @@ void __cmplog_ins_hook8(uint64_t arg1, uint64_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 7;
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1740,10 +1780,20 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
   // (u64)(arg1 >> 64), (u64)arg1, (u64)(arg2 >> 64), (u64)arg2, size + 1,
   // attr);
 
-  if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1754,7 +1804,7 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = size;
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1785,10 +1835,20 @@ void __cmplog_ins_hookN(uint128_t arg1, uint128_t arg2, uint8_t attr,
 
 void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
-  if (likely(!__afl_cmp_map)) return;
+  if (unlikely(!__afl_cmp_map)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
   k = (uintptr_t)(default_hash((u8 *)&k, sizeof(uintptr_t)) & (CMP_MAP_W - 1));
+
+  if (unlikely(arg1 == arg2)) {
+    
+    u32 hits = __afl_cmp_map->headers[k].hits;
+
+    __afl_cmp_map->extra.stats[k][hits] = 1;
+    
+    return;
+  
+  }
 
   u32 hits;
 
@@ -1799,7 +1859,7 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = 15;
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
 
   } else {
 
@@ -1919,7 +1979,7 @@ void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases) {
 
     }
 
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
     
     __afl_cmp_map->headers[k].attribute = 1;
 
@@ -2000,7 +2060,7 @@ void __cmplog_rtn_hook_strn(u8 *ptr1, u8 *ptr2, u64 len) {
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = l - 1;
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
     hits = 0;
 
   } else {
@@ -2047,7 +2107,7 @@ void __cmplog_rtn_hook_str(u8 *ptr1, u8 *ptr2) {
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = l - 1;
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
     hits = 0;
 
   } else {
@@ -2107,7 +2167,7 @@ void __cmplog_rtn_hook(u8 *ptr1, u8 *ptr2) {
     __afl_cmp_map->headers[k].type = CMP_TYPE_RTN;
     __afl_cmp_map->headers[k].hits = 1;
     __afl_cmp_map->headers[k].shape = len - 1;
-    __afl_cmp_map->ret_addr[k] = (uintptr_t)__builtin_return_address(0);
+    __afl_cmp_map->extra.ret_addr[k] = (uintptr_t)__builtin_return_address(0);
     hits = 0;
 
   } else {
