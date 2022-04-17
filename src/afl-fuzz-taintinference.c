@@ -1357,7 +1357,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         if (exec_path_check(afl, cksum, TAINT_CMP)) {
           
           // failed
-          continue;
+          goto linear_ofs_iter_failed;
 
         }
         
@@ -1368,7 +1368,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         }
 
         // failed       
-        // linear_ofs_iter_failed:
+      linear_ofs_iter_failed:
         // try
         //gradient_fuzz(afl, buf, len, &status);  
         // restore buf
