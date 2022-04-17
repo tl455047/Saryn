@@ -1210,12 +1210,13 @@ void show_stats(afl_state_t *afl) {
   int ofs;
   if (afl->shm.memlog_mode || afl->shm.cmplog_mode) {
 
-   ofs = sprintf(tmp, "%s/%s, %s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
+    ofs = sprintf(tmp, "%s/%s, %s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(2), afl->stage_finds[STAGE_TAINT_LS]),
                                 u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]),
                                 u_stringify_int(IB(4), afl->stage_finds[STAGE_ITS_PLUS]),
                                 u_stringify_int(IB(5), afl->stage_cycles[STAGE_ITS_PLUS]));
+
     if (afl->symbolic_mode) {
     
       sprintf(tmp + ofs, ", %s/%s/%s", u_stringify_int(IB(6), afl->stage_finds[STAGE_SYMBOLIC]),
@@ -1227,7 +1228,7 @@ void show_stats(afl_state_t *afl) {
     }
     else {
 
-      SAYF("\n"SET_G1 bSTG bV bSTOP "      th/tls : " cRST "%-36s " bSTG bV"\n", tmp);
+      SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/its+ : " cRST "%-36s " bSTG bV"\n", tmp);
 
     }
     
@@ -1249,11 +1250,7 @@ void show_stats(afl_state_t *afl) {
     SAYF(bV bSTOP " taint seeds : "  cRST "%-36s " bSTG bV"\n", tmp);
 
     sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->cur_tainted_len, afl->selected_inst);
-    SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp); 
-
-    sprintf(tmp, "%d/%d/%d", afl->solved_inst, afl->failed_inst, afl->unsolved_inst);
-    SAYF(bV bSTOP "  pass stats : "  cRST "%-36s " bSTG bV"\n", tmp);
-    
+    SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp);  
 
   }
 

@@ -437,7 +437,7 @@ void reset_cpu_bind(afl_state_t *afl) {
 
 }
 
-u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
+u8 invoke_symbolic(afl_state_t *afl, u8 *orig_buf, u32 len) {
   
   u8* fn, *s2e_path;
   DIR *d;
@@ -457,11 +457,11 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len) {
   // this should done when checking the symbolic dir
 
   // taint inference 
-  if (taint_inference_stage(afl, buf, orig_buf, len, TAINT_CMP)) {
+  /*if (taint_inference_stage(afl, buf, orig_buf, len, TAINT_CMP)) {
 
     return 1;
 
-  }
+  }*/
 
   afl->tainted_seed[TAINT_CMP]++;
   

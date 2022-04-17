@@ -652,7 +652,8 @@ typedef struct afl_state {
       solved_cov_inst,
       unsolved_inst,
       failed_inst;
-
+  
+  u8* ins_tainted;
   tainted_map *tmp_tainted;  
   
   u32 slowest_exec_ms,                  /* Slowest testcase non hang in ms  */
@@ -1275,7 +1276,7 @@ void inst_array_init(afl_state_t *afl, struct queue_entry *q);
 
 u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q);
 
-u8 invoke_symbolic(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len);
+u8 invoke_symbolic(afl_state_t *afl, u8 *orig_buf, u32 len);
 
 void check_symbolic_stuck(afl_state_t *afl);
 
@@ -1302,6 +1303,12 @@ u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
                               u8 *orig_buf, u8 *buf, u8 *cbuf, u32 len,
                               u8 do_reverse, u8 lvl, u8 *status);
 
+u8 rtn_extend_encoding(afl_state_t *afl, u8 entry,
+                              struct cmpfn_operands *o,
+                              struct cmpfn_operands *orig_o, u32 idx,
+                              u32 taint_len, u8 *orig_buf, u8 *buf, u8 *cbuf,
+                              u32 len, u8 lvl, u8 *status);
+                              
 void try_to_add_to_dict(afl_state_t *afl, u64 v, u8 shape);
 
 void try_to_add_to_dictN(afl_state_t *afl, u128 v, u8 size);
