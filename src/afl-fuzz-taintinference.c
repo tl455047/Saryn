@@ -812,7 +812,7 @@ u8 taint_havoc(afl_state_t *afl, u8* buf, u8* orig_buf, u32 len,
 
 }
 
-u8 exec_path_check(afl_state_t *afl, struct tainted_info *tmp, u64 cksum, u8 mode) {
+u8 exec_path_check(afl_state_t *afl, u64 cksum, u8 mode) {
   
   u64 exec_cksum;
 
@@ -830,66 +830,15 @@ u8 exec_path_check(afl_state_t *afl, struct tainted_info *tmp, u64 cksum, u8 mod
   }
   else {
 
-    if (tmp->hits < afl->shm.mem_map->headers[tmp->id].hits) {
+    // if (tmp->hits < afl->shm.mem_map->headers[tmp->id].hits) {
       
-      return 0;
+      return 1;
 
-    }
+    // }
   
   }
 
   return 1;
-
-}
-
-u64 cmp_get_val(afl_state_t *afl, struct tainted_info *tmp, u8 type) {
-
-  struct cmp_operands *o = NULL;
-  u64 val = 87;
-
-  if (tmp->inst_type == CMP_TYPE_INS) {
-
-    o = &afl->shm.cmp_map->log[tmp->id][tmp->hits];
-
-  }
-  else {
-
-    // rtn
-
-  }
-  
-  switch(type) {
-
-    case CMP_V0: {
-      
-      val = o->v0;
-      break;
-
-    }
-    case CMP_V1: {
-      
-      val = o->v1;
-      break;
-    
-    }
-    /*case CMP_V0_128: {
-      
-      val = ((u128)o->v0) + (((u128)o->v0_128) << 64);
-      break;
-
-    }
-    case CMP_V1_128: {
-      
-      val = ((u128)o->v1) + (((u128)o->v1_128) << 64);
-      break;
-
-    }*/
-    default:
-      break;
-
-  }
-
-  return val;
 
 }
 
@@ -953,14 +902,6 @@ void rtn_update_stats(afl_state_t *afl, u32 id, u8 *v0, u8 *v1, u8 v0_len, u8 v1
 
 }
 
-u8 cmp_is_equal(afl_state_t *afl, u32 id, u32 hits) {
-
-  // return afl->shm.cmp_map->extra.stats[id][hits];
-  return (afl->shm.cmp_map->log[id][hits].v0 == 
-          afl->shm.cmp_map->log[id][hits].v1);
-
-}
-
 void cmp_update_stats(afl_state_t *afl, u32 id, u8 reverse) {
   
   if (!reverse && afl->pass_stats[TAINT_CMP][id].cond < 0xff)
@@ -970,14 +911,14 @@ void cmp_update_stats(afl_state_t *afl, u32 id, u8 reverse) {
   
 }
 
-u8 cmp_is_fullfill(afl_state_t *afl, u32 id, u32 hits, u64 v0, u64 v1, u8 attr) {
+u8 cmp_is_fullfill(u64 v0, u64 v1, u8 attr) {
   
   // according to cmp type
   switch(attr) {
     
     case IS_NE: {
 
-      if (!cmp_is_equal(afl, id, hits)) {
+      if (v0 != v1) {
 
         return 0;
 
@@ -993,7 +934,7 @@ u8 cmp_is_fullfill(afl_state_t *afl, u32 id, u32 hits, u64 v0, u64 v1, u8 attr) 
     }
     case IS_EQUAL: {
       
-      if (cmp_is_equal(afl, id, hits)) {
+      if (v0 == v1) {
 
         return 0;
 
@@ -1026,7 +967,7 @@ u8 cmp_is_fullfill(afl_state_t *afl, u32 id, u32 hits, u64 v0, u64 v1, u8 attr) 
 
     case IS_GE: {
 
-      if (v0 > v1 || cmp_is_equal(afl, id, hits)) {
+      if (v0 >= v1) {
 
         return 0;
 
@@ -1059,7 +1000,7 @@ u8 cmp_is_fullfill(afl_state_t *afl, u32 id, u32 hits, u64 v0, u64 v1, u8 attr) 
 
     case IS_LE: {
       
-      if (v0 < v1 || cmp_is_equal(afl, id, hits)) {
+      if (v0 <= v1) {
 
         return 0;
 
@@ -1097,8 +1038,8 @@ u8 descend(u64 *orig_v0, u64 *orig_v1, u64 v0, u64 v1, u8 attr, FILE *f) {
   
     case IS_EQUAL: {
       
-      fprintf(f, "gap: %08llu new gap: %08llu\n", 
-           _ABS(*orig_v0, *orig_v1), _ABS(v0, v1));
+      // fprintf(f, "gap: %08llu new gap: %08llu\n", 
+      //     _ABS(*orig_v0, *orig_v1), _ABS(v0, v1));
 
       if (_ABS(v0, v1) < _ABS(*orig_v0, *orig_v1)) {
 
@@ -1116,8 +1057,8 @@ u8 descend(u64 *orig_v0, u64 *orig_v1, u64 v0, u64 v1, u8 attr, FILE *f) {
     case IS_GE:
     case IS_GREATER: {
        
-      fprintf(f, "gap: %08ld new gap: %08ld\n", 
-           (s64)((s64)*orig_v0 - (s64)*orig_v1), (s64)((s64)v0 - (s64)v1));
+      // fprintf(f, "gap: %08ld new gap: %08ld\n", 
+      //     (s64)((s64)*orig_v0 - (s64)*orig_v1), (s64)((s64)v0 - (s64)v1));
 
       if ((s64)((s64)v0 - (s64)v1) > (s64)((s64)*orig_v0 - (s64)*orig_v1)) {
         
@@ -1135,8 +1076,8 @@ u8 descend(u64 *orig_v0, u64 *orig_v1, u64 v0, u64 v1, u8 attr, FILE *f) {
     case IS_LE:
     case IS_LESSER: {
 
-      fprintf(f, "gap: %08ld new gap: %08ld\n", 
-           (s64)((s64)*orig_v0 - (s64)*orig_v1), (s64)((s64)v0 - (s64)v1));
+      // fprintf(f, "gap: %08ld new gap: %08ld\n", 
+      //     (s64)((s64)*orig_v0 - (s64)*orig_v1), (s64)((s64)v0 - (s64)v1));
      
       if ((s64)((s64)v0 - (s64)v1) < (s64)((s64)*orig_v0 - (s64)*orig_v1)) {
         
@@ -1199,8 +1140,8 @@ u8 gradient_fuzz(afl_state_t *afl, u8 *buf, u32 len, u8 *status) {
  * f'(x) = [v(x+1) - v(x)]
  * 
  */
-u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, struct tainted_info *tmp, 
-    u32 ofs, u64 *orig_v0, u64 *orig_v1, u8* ops, u8 attr, u64 cksum, FILE *f) {
+u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id, 
+    u32 hits, u64 *orig_v0, u64 *orig_v1, u8* ops, u8 attr, u64 cksum, FILE *f) {
   
   u64 v0, v1;
 
@@ -1208,23 +1149,23 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, struct tainted_info *
   *ops = 2;
   byte_level_mutate(afl, buf, ofs, *ops);
 
-  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  afl->shm.cmp_map->headers[id].type = 0;
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
 
   // get new iterate val
-  v0 = cmp_get_val(afl, tmp, CMP_V0);
-  v1 = cmp_get_val(afl, tmp, CMP_V1);
+  v0 = afl->shm.cmp_map->log[id][hits].v0;
+  v1 = afl->shm.cmp_map->log[id][hits].v1;
 
-  fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+  // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
      
-  if (!cmp_is_fullfill(afl, tmp->id, tmp->hits, v0, v1, attr)) {
+  if (!cmp_is_fullfill(v0, v1, attr)) {
 
     return 1;
 
   }
 
   // execution path check
-  if (!exec_path_check(afl, tmp, cksum, TAINT_CMP)) {
+  if (!exec_path_check(afl, cksum, TAINT_CMP)) {
 
     if (!descend(orig_v0, orig_v1, v0, v1, attr, f)) {
           
@@ -1241,23 +1182,23 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, struct tainted_info *
   *ops = 3;
   byte_level_mutate(afl, buf, ofs, *ops);
 
-  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  afl->shm.cmp_map->headers[id].type = 0;
   if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
   
   // get new iterate val
-  v0 = cmp_get_val(afl, tmp, CMP_V0);
-  v1 = cmp_get_val(afl, tmp, CMP_V1);
+  v0 = afl->shm.cmp_map->log[id][hits].v0;
+  v1 = afl->shm.cmp_map->log[id][hits].v1;
 
-  fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+  // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
      
-  if (!cmp_is_fullfill(afl, tmp->id, tmp->hits, v0, v1, attr)) {
+  if (!cmp_is_fullfill(v0, v1, attr)) {
 
     return 1;
 
   }
 
   // execution path check
-  if (!exec_path_check(afl, tmp, cksum, TAINT_CMP)) {
+  if (!exec_path_check(afl, cksum, TAINT_CMP)) {
 
     if (!descend(orig_v0, orig_v1, v0, v1, attr, f)) {
           
@@ -1328,13 +1269,10 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   t = tmp->taint;
   
   // get new iterate val
-  v0 = cmp_get_val(afl, tmp, CMP_V0);
-  v1 = cmp_get_val(afl, tmp, CMP_V1);
+  orig_v0 = v0 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v0;
+  orig_v1 = v1 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v1;
 
-  orig_v0 = v0;
-  orig_v1 = v1;
-  
-  fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
+  // fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
         
   attr = tmp->attr;
 
@@ -1342,7 +1280,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   if (attr > IS_LE) 
     return 0;
 
-  if (!cmp_is_fullfill(afl, tmp->id, tmp->hits, v0, v1, tmp->attr)) {
+  if (!cmp_is_fullfill(v0, v1, tmp->attr)) {
     
     cmp_update_stats(afl, tmp->id, reverse);
 
@@ -1352,7 +1290,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
   }
 
-  fprintf(f, "attr: %u\n", attr);
+  // fprintf(f, "attr: %u\n", attr);
 
   while(t != NULL) {
     
@@ -1360,26 +1298,15 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
       
       afl->stage_cur_byte = t->pos + i;
 
-      fprintf(f, "ofs: %u\n", t->pos + i);
+      // fprintf(f, "ofs: %u\n", t->pos + i);
       // decide iterate direction, check if this offset is able to affect inst. 
-      status = cmp_choose_move_ops(afl, buf, len, tmp, t->pos + i, 
+      status = cmp_choose_move_ops(afl, buf, len, t->pos + i, tmp->id, tmp->hits, 
                     &orig_v0, &orig_v1, &ops, attr, cksum, f);
 
       if (status == 1) {
         
         // try
         gradient_fuzz(afl, buf, len, &status);
-
-        if (status == 1) {
-                
-          afl->solved_inst++; 
-              
-        }
-        else {
-
-          afl->failed_inst++;
-
-        }
 
         cmp_update_stats(afl, tmp->id, reverse);
 
@@ -1399,18 +1326,18 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         byte_level_mutate(afl, buf, t->pos + i, ops);
     
         // exec
-        memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+        afl->shm.cmp_map->headers[tmp->id].type = 0;
         if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 1;
         
         // get new iterate val
-        v0 = cmp_get_val(afl, tmp, CMP_V0);
-        v1 = cmp_get_val(afl, tmp, CMP_V1);
+        v0 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v0;
+        v1 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v1;
 
-        fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+        // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
      
-        if (!cmp_is_fullfill(afl, tmp->id, tmp->hits, v0, v1, attr)) {
+        if (!cmp_is_fullfill(v0, v1, attr)) {
           
-          fprintf(f, "solved\n");
+          // fprintf(f, "solved\n");
           // try
           gradient_fuzz(afl, buf, len, &status);
 
@@ -1418,11 +1345,6 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
             
             afl->solved_inst++; 
           
-          }
-          else {
-
-            afl->failed_inst++;
-      
           }
 
           cmp_update_stats(afl, tmp->id, reverse);
@@ -1432,24 +1354,21 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         }
 
         // execution path check, skip this iterate if execution path changed
-        if (exec_path_check(afl, tmp, cksum, TAINT_CMP) && 
-          !cmp_is_equal(afl, tmp->id, tmp->hits)) {
+        if (exec_path_check(afl, cksum, TAINT_CMP)) {
           
           // failed
-          goto linear_ofs_iter_failed;
-        
+          continue;
+
         }
         
-
-        if (cmp_is_equal(afl, tmp->id, tmp->hits) || 
-              !descend(&orig_v0, &orig_v1, v0, v1, attr, f)) {
+        if (!descend(&orig_v0, &orig_v1, v0, v1, attr, f)) {
           
           continue;
         
         }
 
         // failed       
-      linear_ofs_iter_failed:
+        // linear_ofs_iter_failed:
         // try
         //gradient_fuzz(afl, buf, len, &status);  
         // restore buf
@@ -2314,10 +2233,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
   
-  queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ls,debug", 
-    afl->out_dir, afl->queue_cur->id);
+  // queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ls,debug", 
+  //  afl->out_dir, afl->queue_cur->id);
 
-  f = create_ffile(queue_fn);
+  // f = create_ffile(queue_fn);
   
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (common_fuzz_cmplog_stuff(afl, orig_buf, len)) return 1;
@@ -2334,8 +2253,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
      
       idx = afl->stage_cur;
 
-      fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
-            tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
+      // fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
+      //      tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
 
       if (afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME || 
         (afl->pass_stats[mode][tmp[idx]->id].cond >= PASS_TIME &&
@@ -2454,8 +2373,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   afl->stage_finds[STAGE_TAINT_LS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;
 
-  ck_free(queue_fn);
-  fclose(f);
+  // ck_free(queue_fn);
+  //fclose(f);
 
   return 0;
 
