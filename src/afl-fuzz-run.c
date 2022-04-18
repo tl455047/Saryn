@@ -617,8 +617,6 @@ void sync_fuzzers(afl_state_t *afl) {
 
       handle_failed_inst(afl, sd_ent->d_name);
       
-      afl->solved_inst = 0;
-
     }
 
     entries++;
