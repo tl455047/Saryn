@@ -1249,7 +1249,7 @@ void show_stats(afl_state_t *afl) {
     sprintf(tmp, "%d/%d/%d", afl->tainted_seed[TAINT_CMP], afl->s2e_hang, afl->queued_items);
     SAYF(bV bSTOP " taint seeds : "  cRST "%-36s " bSTG bV"\n", tmp);
 
-    sprintf(tmp, "%d/%d/%d", afl->tainted_len, afl->cur_tainted_len, afl->selected_inst);
+    sprintf(tmp, "%d/%d", afl->tainted_len, afl->cur_tainted_len);
     SAYF(bV bSTOP "     c-bytes : "  cRST "%-36s " bSTG bV"\n", tmp);  
 
   }

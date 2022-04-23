@@ -1122,25 +1122,6 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     
   }
 
-  /*if (afl->symbolic_mode) {
-
-    if (!q->inst_arr_size) {
-
-      inst_array_init(afl, q);
-
-    }
-
-    if (afl->ready_for_cal) {
-
-      q->symb_score = calculate_symbolic_score(afl, q);
-
-    }
-
-    if (q->symb_score != 0)
-      perf_score *= q->symb_score;
-
-  }*/
-
   /* Make sure that we don't go over limit. */
 
   if (perf_score > afl->havoc_max_mult * 100) {

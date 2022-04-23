@@ -2440,7 +2440,7 @@ taint_next_iterator:
 
   }
 
-  #ifdef CMPLOG_COMBINE
+#ifdef CMPLOG_COMBINE
   if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
 
     // copy the current virgin bits so we can recover the information
@@ -2648,8 +2648,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     }
 
     // write c_byte to file
-    if (afl->symbolic_mode)
-      write_to_taint(afl, mode);
+    // if (afl->symbolic_mode)
+    //  write_to_taint(afl, mode);
 
   }
   else if(afl->queue_cur->taint_failed[mode]) {

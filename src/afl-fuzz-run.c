@@ -740,7 +740,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
         if (mem == MAP_FAILED) { PFATAL("Unable to mmap '%s'", path); }
 
-        if (afl->symbolic_mode &&
+        /*if (afl->symbolic_mode &&
           !strncmp(sd_ent->d_name, "s2e-out-", 8)) {
 
           char *str = strtok(namelist[o]->d_name, "-");
@@ -754,7 +754,7 @@ void sync_fuzzers(afl_state_t *afl) {
           if (afl->pass_stats[TAINT_CMP][afl->cur_inst_id].total < 0xFF)
               afl->pass_stats[TAINT_CMP][afl->cur_inst_id].total += 1;
 
-        }
+        }*/
 
         /* See what happens. We rely on save_if_interesting() to catch major
            errors and save the test case. */

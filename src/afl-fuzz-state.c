@@ -644,32 +644,6 @@ void afl_state_symbolic_terminate(void) {
     
     el->ready_for_sync = 1;
 
-    u8 *fn = alloc_printf("%s/testcase-", el->s2e_out_dir);
-    u8 *new_fn = alloc_printf("%s/queue", el->s2e_out_dir);
-    DIR *d;
-    
-    d = opendir(fn);
-
-    if (d) {
-      
-      if (rename(fn, new_fn) < 0) {
-
-        PFATAL("Rename testcase- failed");
-
-      }
-
-      closedir(d);
-      
-    } 
-    else if (errno != ENOENT) {
-      
-      PFATAL("Open testcase- failed");
-
-    }
-    
-    ck_free(fn);
-    ck_free(new_fn);
-
     unsetenv(S2E_ENV_VAR);
 
   });

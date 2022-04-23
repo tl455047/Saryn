@@ -245,9 +245,7 @@ struct queue_entry {
   u8                    taint_failed[TAINT_MODE];
   struct tainted       *constraints;    /* constraint part                  */ 
   u8                    constraints_fuzz;
-  u32                  *inst_arr;
-  u32                   inst_arr_size;
-  u32                   symb_score;
+  u8                    is_symbolic;
 
   struct queue_entry *mother;           /* queue entry this based on        */
   double distance;                      /* direct mode distance             */
@@ -641,18 +639,12 @@ typedef struct afl_state {
       last_hang_time,                   /* Time for most recent hang (ms)   */
       exit_on_time;                     /* Delay to exit if no new paths    */
   
-  u32 selected_inst,                     /*       taint inference info       */
-      tainted_len,
+  u32 tainted_len,                      /*       taint inference info       */
       cur_tainted_len,
       tainted_seed[TAINT_MODE];
   
   u8  taint_mode;
 
-  u32 solved_inst,
-      solved_cov_inst,
-      unsolved_inst,
-      failed_inst;
-  
   u8* ins_tainted;
   tainted_map *tmp_tainted;  
   
@@ -732,7 +724,6 @@ typedef struct afl_state {
   u8               symbolic_mode;       
   u8               ready_for_symbolic;
   u8               ready_for_sync;
-  u8               ready_for_cal;
   u8 *             s2e_out_dir;
   u64              s2e_usr_time;
   u32              s2e_hang;
@@ -1271,10 +1262,6 @@ void destroy_taint(afl_state_t *afl, struct queue_entry *q);
 /* Symbolic */
 
 void handle_failed_inst(afl_state_t *afl, u8 *dir);
-
-void inst_array_init(afl_state_t *afl, struct queue_entry *q);
-
-u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q);
 
 u8 invoke_symbolic(afl_state_t *afl, u8 *orig_buf, u32 len);
 

@@ -29,60 +29,35 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   u8 *fn; 
   struct tainted_info **tmp;
   struct tainted *t; 
-
-  afl->selected_inst = 0;
+  u32 selected_inst = 0;
+  
   // write selected inst.'s returne address to s2e project dir
   fn = alloc_printf("%s/ret_addr", afl->symbolic_path);
   f = create_ffile(fn);
 
   tmp = afl->queue_cur->taint[TAINT_CMP];
   
-  afl->unsolved_inst = 0;
-  afl->failed_inst = 0;
-  afl->solved_inst = 0;
-
   for(u32 i = 0; i < afl->queue_cur->taint_cur[TAINT_CMP]; i++) {
   
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
     
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds)
-      afl->failed_inst++;
+    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= 0xff || 
+        afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= 0xff)
+      continue;
     
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
-      afl->solved_inst++;
-    
-    if (!afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds &&
-        !afl->pass_stats[TAINT_CMP][tmp[i]->id].total)
-      afl->unsolved_inst++;
-
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
     
-    afl->selected_inst++;
+    selected_inst++;
     
   }
-  
-  /*for(u32 i = 0; i < CMP_MAP_W; i++) {
-  
-    if (!afl->orig_cmp_map->headers[i].hits) 
-      continue;
-
-     if (!afl->pass_stats[TAINT_CMP][i].faileds &&
-        !afl->pass_stats[TAINT_CMP][i].total)
-      afl->unsolved_inst++;
- 
-    fprintf(f, "%llx %u\n", afl->orig_cmp_map->ret_addr[i], i);
-    
-    afl->selected_inst++;
-    
-  }*/
 
   fflush(f);
 
   fclose(f);
   ck_free(fn);
 
-  if (!afl->unsolved_inst)
+  if (!selected_inst)
     return 1;
 
   // write current seed to s2e project dir
@@ -156,120 +131,6 @@ void kill_all_dead_symbolic() {
   }
 
   closedir(d);
-
-}
-
-void inst_array_init(afl_state_t *afl, struct queue_entry *q) {
-
-  u32 cnt = 0;
-  u32 *tmp;
-  u32 j;
-  s32 fd;
-  u8 *buf;
-
-  buf = ck_alloc_nozero(q->len);
-
-  fd = open(q->fname, O_RDONLY);
-
-  if (unlikely(fd < 0)) { PFATAL("Unable to open '%s'", q->fname); }
-
-  ck_read(fd, buf, q->len, q->fname);
-  
-  close(fd);
-
-  if (common_fuzz_cmplog_stuff(afl, buf, q->len)) return;
-
-  for(u32 i = 0; i < CMP_MAP_W; i++) {
-
-    if (!afl->shm.cmp_map->headers[i].hits) continue;
-
-    cnt++;
-
-  }
-
-  tmp = ck_alloc(cnt * sizeof(u32));
-  
-  j = 0;
-  for(u32 i = 0; i < CMP_MAP_W; i++) {
-
-    if (!afl->shm.cmp_map->headers[i].hits) continue;
-
-    tmp[j++] = i;
-
-  }
-
-  q->inst_arr = tmp;
-  q->inst_arr_size = cnt;
-
-}
-
-u32 calculate_symbolic_score(afl_state_t *afl, struct queue_entry *q) {
-  
-  u32 idx, 
-      unsolved_inst = 0,
-      failed_inst = 0, 
-      perf_score = 1;
-
-  for(u32 i = 0; i < q->inst_arr_size; i++) {
-
-    idx = q->inst_arr[i];
-
-    if (afl->pass_stats[TAINT_CMP][idx].faileds)
-      failed_inst += afl->pass_stats[TAINT_CMP][idx].faileds;
-    // if (afl->pass_stats[TAINT_CMP][idx].total)
-
-    if (!afl->pass_stats[TAINT_CMP][idx].faileds &&
-        !afl->pass_stats[TAINT_CMP][idx].total) {
-      
-      unsolved_inst++;
-
-    }
-
-  }
-
-  if (unsolved_inst > 300) 
-    perf_score *= 8;
-  else if (unsolved_inst > 250) 
-    perf_score *= 7;
-  else if (unsolved_inst > 200) 
-    perf_score *= 6;
-  else if (unsolved_inst > 150) 
-    perf_score *= 5;
-  else if (unsolved_inst > 100)
-    perf_score *= 4;
-  else if (unsolved_inst > 75) 
-    perf_score *= 3;
-  else if (unsolved_inst > 50)
-    perf_score *= 2.5;
-  else if (unsolved_inst > 25)
-    perf_score *= 2;
-  else if (unsolved_inst > 10) 
-    perf_score *= 1.5;
-  else 
-    perf_score *= 1;
-
-  if (failed_inst > 300) 
-    perf_score *= 1;
-  else if (failed_inst > 250) 
-    perf_score *= 1.5;
-  else if (failed_inst > 200) 
-    perf_score *= 2;
-  else if (failed_inst > 150) 
-    perf_score *= 3;
-  else if (failed_inst > 100)
-    perf_score *= 4;
-  else if (failed_inst > 75) 
-    perf_score *= 5;
-  else if (failed_inst > 50)
-    perf_score *= 6;
-  else if (failed_inst > 25)
-    perf_score *= 7;
-  else if (failed_inst > 10) 
-    perf_score *= 8;
-  else 
-    perf_score *= 1;
-    
-  return perf_score;
 
 }
 
@@ -511,6 +372,8 @@ u8 invoke_symbolic(afl_state_t *afl, u8 *orig_buf, u32 len) {
   s2e_path = alloc_printf("%s/launch-s2e.sh", afl->symbolic_path);
   
   afl->ready_for_symbolic = 0;
+  afl->queue_cur->is_symbolic = 1;
+  
   // launch s2e
   pid = fork();
 
