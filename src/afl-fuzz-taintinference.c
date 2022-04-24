@@ -2216,8 +2216,9 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       // fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
       //     tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
 
-      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME &&
-          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME)
+      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME ||
+          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME ||
+          afl->pass_stats[mode][tmp[idx]->id].solved >= LINEAR_TIME)
         continue;
 
       memcpy(buf, orig_buf, len);
@@ -2226,7 +2227,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
         (tmp[idx]->type == CMP_V0 || tmp[idx]->type == CMP_V1)) {
 
         if (cmp_linear_search(afl, buf, len, idx, cksum, f)) {
-        
+          
+          if (afl->pass_stats[mode][tmp[idx]->id].solved < 0xff) 
+            afl->pass_stats[mode][tmp[idx]->id].solved++;
+
         }
         else {
           // condition failed, update failed
