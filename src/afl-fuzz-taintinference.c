@@ -6,7 +6,7 @@
 #define SLIGHT_TAINTED 64
 #define MIN_TAINTED_HAVOC 32
 #define LINEAR_TIME 0xff
-#define PASS_TIME 0xff
+#define PASS_TIME 0x80
 
 #define SWAPA(_x) ((_x & 0xf8) + ((_x & 7) ^ 0x07))
 
@@ -2224,7 +2224,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       // fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
       //     tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
 
-      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME)
+      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME || 
+          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME || 
+         (afl->pass_stats[mode][tmp[idx]->id].cond >= LINEAR_TIME &&
+          afl->pass_stats[mode][tmp[idx]->id].compl >= LINEAR_TIME))
         continue;
 
       memcpy(buf, orig_buf, len);
