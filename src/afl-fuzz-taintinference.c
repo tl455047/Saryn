@@ -875,7 +875,7 @@ u64 mem_get_val(afl_state_t *afl, u32 cur, u8 idx) {
 
 }
 
-u8 cmp_is_fullfill(u64 v0, u64 v1, u8 attr) {
+u8 cmp_is_fulfill(u64 v0, u64 v1, u8 attr) {
   
   // according to cmp type
   switch(attr) {
@@ -1132,7 +1132,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
   // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
      
   if (hits < afl->shm.cmp_map->headers[id].hits &&
-      !cmp_is_fullfill(v0, v1, attr)) {
+      !cmp_is_fulfill(v0, v1, attr)) {
 
     return 1;
 
@@ -1167,7 +1167,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
   // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
   
   if (hits < afl->shm.cmp_map->headers[id].hits &&
-      !cmp_is_fullfill(v0, v1, attr)) {
+      !cmp_is_fulfill(v0, v1, attr)) {
 
     return 1;
 
@@ -1257,7 +1257,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   if (attr > IS_LE) 
     return 0;
 
-  if (!cmp_is_fullfill(v0, v1, attr)) {
+  if (!cmp_is_fulfill(v0, v1, attr)) {
     
     cmp_update_stats(afl, tmp->id, reverse);
 
@@ -1299,7 +1299,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
       }
 
-      u32 k = 0x80;
+      u32 k = 0x100;
       while (k--) {
         
         // iterate
@@ -1316,7 +1316,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
 
         if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
-            !cmp_is_fullfill(v0, v1, attr)) {
+            !cmp_is_fulfill(v0, v1, attr)) {
           
           // fprintf(f, "solved\n");
           // try
@@ -1359,6 +1359,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
     t = t->next;
 
   }
+
+  gradient_fuzz(afl, buf, len, &status);
 
   return 0;
 
@@ -2216,9 +2218,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
       // fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
       //     tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
 
-      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME ||
-          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME ||
-          afl->pass_stats[mode][tmp[idx]->id].solved >= LINEAR_TIME)
+      if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME)
         continue;
 
       memcpy(buf, orig_buf, len);
@@ -2228,9 +2228,6 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
         if (cmp_linear_search(afl, buf, len, idx, cksum, f)) {
           
-          if (afl->pass_stats[mode][tmp[idx]->id].solved < 0xff) 
-            afl->pass_stats[mode][tmp[idx]->id].solved++;
-
         }
         else {
           // condition failed, update failed
@@ -2652,8 +2649,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     }
 
     // write c_byte to file
-    // if (afl->symbolic_mode)
-    //  write_to_taint(afl, mode);
+    // write_to_taint(afl, mode);
 
   }
   else if(afl->queue_cur->taint_failed[mode]) {

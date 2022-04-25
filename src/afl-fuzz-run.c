@@ -615,7 +615,7 @@ void sync_fuzzers(afl_state_t *afl) {
 
       orig_hit_cnt = afl->queued_items + afl->saved_crashes;
 
-      handle_failed_inst(afl, sd_ent->d_name);
+      // handle_failed_inst(afl, sd_ent->d_name);
       
     }
 
