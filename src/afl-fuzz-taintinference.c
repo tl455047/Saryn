@@ -1360,8 +1360,6 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
   }
 
-  gradient_fuzz(afl, buf, len, &status);
-
   return 0;
 
 }
