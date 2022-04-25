@@ -761,6 +761,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
   
+  afl->taint_alone_mode = 1;
+
   show_init_stats(afl);
   // cull_queue(afl);
   afl->start_time = get_cur_time();

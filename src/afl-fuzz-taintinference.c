@@ -1601,7 +1601,7 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
 
   }  
   // selected ret
-  /*if (mode == TAINT_CMP) {
+  if (mode == TAINT_CMP) {
 
     u32 cnt = 0;
     tmp = afl->queue_cur->taint[TAINT_CMP];
@@ -1623,14 +1623,18 @@ void write_to_taint(afl_state_t *afl, u8 mode) {
       if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
         continue;
 
-      fprintf(f, "%llx\n", tmp[i]->ret_addr);
+      if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= 0xff || 
+        afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= 0xff)
+      continue;
 
+      fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
+   
     }
 
     fclose(f);
     ck_free(queue_fn);
 
-  }*/ 
+  }
   
 }
 
@@ -1766,139 +1770,143 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    for(u32 k = 0; k < sect; k++) {
-    
-      status = 0;
+    if (!afl->taint_alone_mode) {
+
+      for(u32 k = 0; k < sect; k++) {
+      
+        status = 0;
+            
+#ifdef WORD_SIZE_64
+        if (is_n) {  // _ExtInt special case including u128
+
+          // not handling yet
+          if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
+            
+            ret = 1;
+
+            if (unlikely(cmp_extend_encodingN(
+                      afl, h, s128_v0, s128_v1, orig_s128_v0, orig_s128_v1,
+                      h->attribute, ofs + k, taint_len, orig_buf, buf, cbuf, len, 1,
+                      1, &status))) {
+
+              return ret;
+
+            }
+
+          }
           
-  #ifdef WORD_SIZE_64
-      if (is_n) {  // _ExtInt special case including u128
+          if (status == 1) {
 
-        // not handling yet
-        if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
-          
-          ret = 1;
+            found_one = 1;
+            break;
 
-          if (unlikely(cmp_extend_encodingN(
-                    afl, h, s128_v0, s128_v1, orig_s128_v0, orig_s128_v1,
-                    h->attribute, ofs + k, taint_len, orig_buf, buf, cbuf, len, 1,
-                    1, &status))) {
+          }
+            
+          if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
+            
+            ret = 1;
 
-            return ret;
+            if (unlikely(cmp_extend_encodingN(
+                      afl, h, s128_v1, s128_v0, orig_s128_v1, orig_s128_v0,
+                      SWAPA(h->attribute), ofs + k, taint_len, orig_buf, buf, cbuf, len,
+                      1, 1, &status))) {
+
+              return ret;
+
+            }
 
           }
 
         }
-        
+
         if (status == 1) {
 
           found_one = 1;
           break;
 
         }
-          
-        if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
+
+#endif
+            
+        if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
           
           ret = 1;
 
-          if (unlikely(cmp_extend_encodingN(
-                    afl, h, s128_v1, s128_v0, orig_s128_v1, orig_s128_v0,
-                    SWAPA(h->attribute), ofs + k, taint_len, orig_buf, buf, cbuf, len,
-                    1, 1, &status))) {
-
+          if (unlikely(cmp_extend_encoding(
+                    afl, h, o->v0, o->v1, orig_o->v0, orig_o->v1, h->attribute, ofs + k,
+                    taint_len, orig_buf, buf, cbuf, len, 1, 1, &status))) {
+            
             return ret;
 
           }
 
         }
 
-      }
+        if (status == 1) {
 
-      if (status == 1) {
+          found_one = 1;
+          break;
 
-        found_one = 1;
-        break;
-
-      }
-
-  #endif
+        }
+            
+        if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
           
-      if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
-        
-        ret = 1;
+          ret = 1;
 
-        if (unlikely(cmp_extend_encoding(
-                  afl, h, o->v0, o->v1, orig_o->v0, orig_o->v1, h->attribute, ofs + k,
-                  taint_len, orig_buf, buf, cbuf, len, 1, 1, &status))) {
-          
-          return ret;
+          if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1,
+                                            orig_o->v0, SWAPA(h->attribute), ofs + k,
+                                            taint_len, orig_buf, buf, cbuf, len, 1,
+                                            1, &status))) {
+            
+            return ret;
+
+          }
+
+        }
+
+        if (status == 1) {
+
+          found_one = 1;
+          break;
 
         }
 
       }
 
-      if (status == 1) {
+      // we only learn 16 bit +
+      if (hshape > 1) {
 
-        found_one = 1;
-        break;
-
-      }
-          
-      if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
-        
-        ret = 1;
-
-        if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1,
-                                          orig_o->v0, SWAPA(h->attribute), ofs + k,
-                                          taint_len, orig_buf, buf, cbuf, len, 1,
-                                          1, &status))) {
-          
-          return ret;
-
-        }
-
-      }
-
-      if (status == 1) {
-
-        found_one = 1;
-        break;
-
-      }
-
-    }
-
-    // we only learn 16 bit +
-    if (hshape > 1) {
-
-      if (!found_one || afl->queue_cur->is_ascii) {
+        if (!found_one || afl->queue_cur->is_ascii) {
 
 #ifdef WORD_SIZE_64
-        if (unlikely(is_n)) {
+          if (unlikely(is_n)) {
 
-          if (!found_one ||
-              check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
-            try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
-          if (!found_one ||
-              check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
-                  SHAPE_BYTES(h->shape))
-            try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
+            if (!found_one ||
+                check_if_text_buf((u8 *)&s128_v0, SHAPE_BYTES(h->shape)) ==
+                    SHAPE_BYTES(h->shape))
+              try_to_add_to_dictN(afl, s128_v0, SHAPE_BYTES(h->shape));
+            if (!found_one ||
+                check_if_text_buf((u8 *)&s128_v1, SHAPE_BYTES(h->shape)) ==
+                    SHAPE_BYTES(h->shape))
+              try_to_add_to_dictN(afl, s128_v1, SHAPE_BYTES(h->shape));
 
-        } else
+          } else
 
 #endif
-        {
+          {
 
-          if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
-              (!found_one ||
-               check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
-            try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
-          if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
-              (!found_one ||
-               check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
-                   SHAPE_BYTES(h->shape)))
-            try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+            if (!memcmp((u8 *)&o->v0, (u8 *)&orig_o->v0, SHAPE_BYTES(h->shape)) &&
+                (!found_one ||
+                check_if_text_buf((u8 *)&o->v0, SHAPE_BYTES(h->shape)) ==
+                    SHAPE_BYTES(h->shape)))
+              try_to_add_to_dict(afl, o->v0, SHAPE_BYTES(h->shape));
+            if (!memcmp((u8 *)&o->v1, (u8 *)&orig_o->v1, SHAPE_BYTES(h->shape)) &&
+                (!found_one ||
+                check_if_text_buf((u8 *)&o->v1, SHAPE_BYTES(h->shape)) ==
+                    SHAPE_BYTES(h->shape)))
+              try_to_add_to_dict(afl, o->v1, SHAPE_BYTES(h->shape));
+
+          }
 
         }
 
@@ -2327,19 +2335,24 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   u32 sect;
   u64 orig_hit_cnt, new_hit_cnt, orig_execs;
+  u8 *cbuf = NULL, *virgin_backup = NULL;
   // u64 cksum = 0, exec_cksum = 0;
 
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
 
+  if (!afl->taint_alone_mode) {
+
 #ifdef CMPLOG_COMBINE
-  u8 *cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
+  
+  cbuf = afl_realloc((void **)&afl->in_scratch_buf, len + 128);
   memcpy(cbuf, orig_buf, len);
-  u8 *virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
+  virgin_backup = afl_realloc((void **)&afl->ex_buf, afl->shm.map_size);
   memcpy(virgin_backup, afl->virgin_bits, afl->shm.map_size);
-#else
-  u8 *cbuf = NULL;
+  
 #endif
+
+  }
 
   // Reset bitmap before each execution.
   // memset(taint_mode.map, 0, taint_mode.map_size);
@@ -2441,62 +2454,53 @@ taint_next_iterator:
 
   }
 
+  if (!afl->taint_alone_mode) {
+
 #ifdef CMPLOG_COMBINE
-  if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
+    
+    if (afl->queued_items + afl->saved_crashes > orig_hit_cnt + 1) {
 
-    // copy the current virgin bits so we can recover the information
-    u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
-    memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
-    // reset virgin bits to the backup previous to redqueen
-    memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
+      // copy the current virgin bits so we can recover the information
+      u8 *virgin_save = afl_realloc((void **)&afl->eff_buf, afl->shm.map_size);
+      memcpy(virgin_save, afl->virgin_bits, afl->shm.map_size);
+      // reset virgin bits to the backup previous to redqueen
+      memcpy(afl->virgin_bits, virgin_backup, afl->shm.map_size);
 
-    u8 status = 0;
-    its_fuzz(afl, cbuf, len, &status);
+      u8 status = 0;
+      its_fuzz(afl, cbuf, len, &status);
 
-  // now combine with the saved virgin bits
-  #ifdef WORD_SIZE_64
-    u64 *v = (u64 *)afl->virgin_bits;
-    u64 *s = (u64 *)virgin_save;
-    u32  i;
-    for (i = 0; i < (afl->shm.map_size >> 3); i++) {
+    // now combine with the saved virgin bits
+#ifdef WORD_SIZE_64
+      u64 *v = (u64 *)afl->virgin_bits;
+      u64 *s = (u64 *)virgin_save;
+      u32  i;
+      for (i = 0; i < (afl->shm.map_size >> 3); i++) {
 
-      v[i] &= s[i];
+        v[i] &= s[i];
 
-    }
+      }
 
-  #else
-    u32 *v = (u32 *)afl->virgin_bits;
-    u32 *s = (u32 *)virgin_save;
-    u32  i;
-    for (i = 0; i < (afl->shm.map_size >> 2); i++) {
+#else
+      u32 *v = (u32 *)afl->virgin_bits;
+      u32 *s = (u32 *)virgin_save;
+      u32  i;
+      for (i = 0; i < (afl->shm.map_size >> 2); i++) {
 
-      v[i] &= s[i];
+        v[i] &= s[i];
 
-    }
+      }
 
-  #endif
-
-  #ifdef _DEBUG
-    dump("COMB", cbuf, len);
-    if (status == 1) {
-
-      fprintf(stderr, "NEW CMPLOG_COMBINED\n");
-
-    } else {
-
-      fprintf(stderr, "NO new combined\n");
+#endif
 
     }
-
-  #endif
-
-  }
 
 #endif
 
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_ITS_PLUS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_ITS_PLUS] += afl->fsrv.total_execs - orig_execs;
+
+  }
 
   return 0;
 
@@ -2649,7 +2653,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     }
 
     // write c_byte to file
-    // write_to_taint(afl, mode);
+    if (afl->taint_alone_mode)
+      write_to_taint(afl, mode);
 
   }
   else if(afl->queue_cur->taint_failed[mode]) {

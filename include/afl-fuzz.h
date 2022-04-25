@@ -642,9 +642,10 @@ typedef struct afl_state {
   u32 tainted_len,                      /*       taint inference info       */
       cur_tainted_len,
       tainted_seed[TAINT_MODE];
-  
-  u8  taint_mode;
-
+      
+  u8  taint_mode,
+      taint_alone_mode;  
+      
   u8* ins_tainted;
   tainted_map *tmp_tainted;  
   
