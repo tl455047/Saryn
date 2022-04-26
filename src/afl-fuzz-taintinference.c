@@ -1779,8 +1779,6 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
           // not handling yet
           if (s128_v0 != orig_s128_v0 && orig_s128_v0 != orig_s128_v1) {
-            
-            ret = 1;
 
             if (unlikely(cmp_extend_encodingN(
                       afl, h, s128_v0, s128_v1, orig_s128_v0, orig_s128_v1,
@@ -1802,8 +1800,6 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
             
           if (s128_v1 != orig_s128_v1 && orig_s128_v1 != orig_s128_v0) {
             
-            ret = 1;
-
             if (unlikely(cmp_extend_encodingN(
                       afl, h, s128_v1, s128_v0, orig_s128_v1, orig_s128_v0,
                       SWAPA(h->attribute), ofs + k, taint_len, orig_buf, buf, cbuf, len,
@@ -1827,8 +1823,6 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 #endif
             
         if (o->v0 != orig_o->v0 && orig_o->v0 != orig_o->v1) {
-          
-          ret = 1;
 
           if (unlikely(cmp_extend_encoding(
                     afl, h, o->v0, o->v1, orig_o->v0, orig_o->v1, h->attribute, ofs + k,
@@ -1848,8 +1842,6 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
         }
             
         if (o->v1 != orig_o->v1 && orig_o->v0 != orig_o->v1) {
-          
-          ret = 1;
 
           if (unlikely(cmp_extend_encoding(afl, h, o->v1, o->v0, orig_o->v1,
                                             orig_o->v0, SWAPA(h->attribute), ofs + k,
@@ -1926,14 +1918,18 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
   
   return ret;
 
-
 }
 
-/*u8 rtn_inference(afl_state_t *afl, u32 ofs, u32 i, u32 loggeds) {
+u8 rtn_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32 ofs, u32 i, u32 loggeds) {
 
-  struct cmpfn_operands *o = NULL, *orig_o = NULL, *tmp_o = NULL;
+  struct cmpfn_operands *o = NULL, *orig_o = NULL;
+  struct cmp_header *h = NULL;
+  u8  status = 0, found_one = 0, ret = 0, is_tainted = 0;
+  u32 taint_len = 8, sect = MIN((u32)TAINT_SECTION, (u32)(len - ofs)),
+      v0_len = 0, v1_len = 0; 
+
+  h = &afl->shm.cmp_map->headers[i]; 
   
-  u8 ret = 0;
 
   for(u32 j = 0; j < loggeds; j++) {
         
@@ -1954,7 +1950,128 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
     
     }
 
-    // rtn_update_stats(afl, i, o->v0, o->v1, o->v0_len, o->v1_len);
+    is_tainted = 0;
+
+    v0_len = o->v0_len;
+    v1_len = o->v1_len;
+
+    if (v0_len > 0x80)
+      v0_len -= 0x80;
+    
+    if (v1_len > 0x80)
+      v1_len -= 0x80;
+
+    if (o->v0_len != orig_o->v0_len || (memcmp(o->v0, orig_o->v0, v0_len))) {
+
+      ret = 1;
+
+      is_tainted = 1;
+
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, sect);
+      add_cmp_tainted_info(afl, i, j, RTN_V0, ofs, sect, h->attribute);
+     
+    }
+    else if (o->v1_len != orig_o->v1_len || (memcmp(o->v1, orig_o->v1, v1_len))) {
+      
+      ret = 1;
+      
+      is_tainted = 2;
+
+      afl->queue_cur->c_bytes[TAINT_CMP] = 
+        add_tainted(afl->queue_cur->c_bytes[TAINT_CMP], ofs, sect);
+      add_cmp_tainted_info(afl, i, j, RTN_V1, ofs, sect, h->attribute);
+      
+    }
+
+    if (!afl->taint_alone_mode) {
+
+      for(u32 k = 0; k < sect; k++) {
+        
+        status = 0;
+
+        if (is_tainted == 1) {
+          
+          if (unlikely(rtn_extend_encoding(afl, 0, o, orig_o, ofs + k, taint_len,
+                                        orig_buf, buf, cbuf, len, 1,
+                                        &status))) {
+
+            return 1;
+
+          }
+
+          if (status == 1) {
+
+            found_one = 1;
+            break;
+
+          }
+        
+        }
+
+        status = 0;
+
+        if (is_tainted == 2) {
+
+          if (unlikely(rtn_extend_encoding(afl, 1, o, orig_o, ofs + k, taint_len,
+                                          orig_buf, buf, cbuf, len, 1,
+                                          &status))) {
+
+            return 1;
+
+          }
+
+          if (status == 1) {
+
+            found_one = 1;
+            break;
+
+          }
+
+        }
+
+      }
+
+      //  if (unlikely(!afl->its_pass_stats[key].total)) {
+
+      if (!found_one || afl->queue_cur->is_ascii) {
+
+        // if (unlikely(!afl->its_pass_stats[key].total)) {
+
+        u32 shape_len = SHAPE_BYTES(h->shape);
+        u32 v0_len = shape_len, v1_len = shape_len;
+        if (afl->queue_cur->is_ascii ||
+            check_if_text_buf((u8 *)&o->v0, shape_len) == shape_len) {
+
+          if (strlen(o->v0)) v0_len = strlen(o->v0);
+
+        }
+
+        if (afl->queue_cur->is_ascii ||
+            check_if_text_buf((u8 *)&o->v1, shape_len) == shape_len) {
+
+          if (strlen(o->v1)) v1_len = strlen(o->v1);
+
+        }
+
+        // fprintf(stderr, "SHOULD: found:%u ascii:%u text?%u:%u %u:%s %u:%s \n",
+        // found_one, afl->queue_cur->is_ascii, check_if_text_buf((u8 *)&o->v0,
+        // shape_len), check_if_text_buf((u8 *)&o->v1, shape_len), v0_len,
+        // o->v0, v1_len, o->v1);
+
+        if (!memcmp(o->v0, orig_o->v0, v0_len) ||
+            (!found_one || check_if_text_buf((u8 *)&o->v0, v0_len) == v0_len))
+          maybe_add_auto(afl, o->v0, v0_len);
+        if (!memcmp(o->v1, orig_o->v1, v1_len) ||
+            (!found_one || check_if_text_buf((u8 *)&o->v1, v1_len) == v1_len))
+          maybe_add_auto(afl, o->v1, v1_len);
+
+        //}
+
+      }
+
+    }
+
     rtn_inference_next_iter:
       continue;
 
@@ -1962,10 +2079,11 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
   return ret;
 
-}*/
+}
 
 void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u32 ofs) {
   
+  u8 ret = 0;
   u32 loggeds;
   
   for(u32 i = 0; i < CMP_MAP_W; i++) {
@@ -1984,18 +2102,17 @@ void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
     
     if (afl->shm.cmp_map->headers[i].type == CMP_TYPE_INS) {
 
-      if (ins_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds)) {
+      ret = ins_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
 
-        afl->ins_tainted[i >> 3] |= 1 << (7 & i);
-
-      }
-    
     }
     else {
 
-      // rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
+      ret = rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
     
     }
+    
+    if (ret)
+      afl->ins_tainted[i >> 3] |= 1 << (7 & i);
 
   }
 

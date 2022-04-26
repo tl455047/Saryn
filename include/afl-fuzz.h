@@ -297,7 +297,7 @@ enum {
   /* 22 */ STAGE_TAINT_LS,
   /* 23 */ STAGE_SYMBOLIC,
   /* 24 */ STAGE_SYMBOLIC_SEED,
-  /* 20 */ STAGE_ITS_PLUS,
+  /* 25 */ STAGE_ITS_PLUS,
   STAGE_NUM_MAX
 
 };
@@ -645,7 +645,7 @@ typedef struct afl_state {
       
   u8  taint_mode,
       taint_alone_mode;  
-      
+
   u8* ins_tainted;
   tainted_map *tmp_tainted;  
   

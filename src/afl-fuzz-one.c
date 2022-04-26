@@ -587,7 +587,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  memcpy(out_buf, in_buf, len);
+  /*memcpy(out_buf, in_buf, len);
   
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
@@ -615,7 +615,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     }
 
-  }
+  }*/
 
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or

@@ -1207,31 +1207,27 @@ void show_stats(afl_state_t *afl) {
   }
 
   /* taint inference */
-  int ofs;
   if (afl->shm.memlog_mode || afl->shm.cmplog_mode) {
 
-    ofs = sprintf(tmp, "%s/%s, %s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
+    sprintf(tmp, "%s/%s, %s/%s, %s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(1), afl->stage_cycles[STAGE_TAINT_HAVOC]),
                                 u_stringify_int(IB(2), afl->stage_finds[STAGE_TAINT_LS]),
                                 u_stringify_int(IB(3), afl->stage_cycles[STAGE_TAINT_LS]),
                                 u_stringify_int(IB(4), afl->stage_finds[STAGE_ITS_PLUS]),
                                 u_stringify_int(IB(5), afl->stage_cycles[STAGE_ITS_PLUS]));
 
+    SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/its+ : " cRST "%-36s " bSTG bV"\n", tmp);
+
     if (afl->symbolic_mode) {
     
-      sprintf(tmp + ofs, ", %s/%s/%s", u_stringify_int(IB(6), afl->stage_finds[STAGE_SYMBOLIC]),
-                                       u_stringify_int(IB(7), afl->stage_finds[STAGE_SYMBOLIC_SEED]),
-                                       u_stringify_int(IB(8), afl->stage_cycles[STAGE_SYMBOLIC]));
+      sprintf(tmp, "%s/%s/%s", u_stringify_int(IB(0), afl->stage_finds[STAGE_SYMBOLIC]),
+                         u_stringify_int(IB(1), afl->stage_finds[STAGE_SYMBOLIC_SEED]),
+                         u_stringify_int(IB(2), afl->stage_cycles[STAGE_SYMBOLIC]));
       
-      SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/symb : " cRST "%-36s " bSTG bV"\n", tmp);
+      SAYF(SET_G1 bSTG bV bSTOP "        symb : " cRST "%-36s " bSTG bV"\n", tmp);
 
     }
-    else {
 
-      SAYF("\n"SET_G1 bSTG bV bSTOP " th/tls/its+ : " cRST "%-36s " bSTG bV"\n", tmp);
-
-    }
-    
     SAYF(SET_G1 bSTG bVR bH cCYA bSTOP " taint inference " bSTG bH2 bH bH5 bH10 bH2 bH10 bH2 bH2 bVL"\n");      
    
     if (afl->shm.cmplog_mode && afl->taint_mode == TAINT_CMP) {
