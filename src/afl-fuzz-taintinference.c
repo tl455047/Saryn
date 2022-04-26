@@ -1768,7 +1768,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    if (!afl->taint_alone_mode) {
+    /*if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
       
@@ -1902,7 +1902,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }
+    }*/
 
   ins_inference_next_iter:
     continue;
@@ -2107,7 +2107,7 @@ void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
     }
     else {
 
-      ret = rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
+      // ret = rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
     
     }
     
