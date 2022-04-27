@@ -2758,8 +2758,8 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
       // fprintf(stderr, "INS %u\n", k);
-      // afl->stage_max +=
-      //    MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
+      afl->stage_max +=
+          MIN((u32)(afl->shm.cmp_map->headers[k].hits), (u32)CMP_MAP_H);
 
     } else {
 
@@ -2781,11 +2781,11 @@ u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len) {
 
     if (afl->shm.cmp_map->headers[k].type == CMP_TYPE_INS) {
 
-      //if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
+      if (unlikely(cmp_fuzz(afl, k, orig_buf, buf, cbuf, len, lvl, taint))) {
 
-      //  goto exit_its;
+        goto exit_its;
 
-      //}
+      }
 
     } else if ((lvl & LVL1)
 

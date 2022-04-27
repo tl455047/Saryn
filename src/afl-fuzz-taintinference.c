@@ -1131,7 +1131,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
 
   // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
      
-  if (hits < afl->shm.cmp_map->headers[id].hits &&
+  /*if (hits < afl->shm.cmp_map->headers[id].hits &&
       !cmp_is_fulfill(v0, v1, attr)) {
 
     return 1;
@@ -1148,6 +1148,27 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
 
     }
     
+  }*/
+
+  if (exec_path_check(afl, cksum, TAINT_CMP)) {
+
+    if (hits < afl->shm.cmp_map->headers[id].hits && 
+      !cmp_is_fulfill(v0, v1, attr)) {
+
+      // try
+      return 1;
+
+    }
+  
+  }
+  else {
+
+    if (!descend(orig_v0, orig_v1, v0, v1, attr)) {
+          
+      return 0;
+
+    }
+
   }
 
   // restore buffer
@@ -1166,7 +1187,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
 
   // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
   
-  if (hits < afl->shm.cmp_map->headers[id].hits &&
+  /*if (hits < afl->shm.cmp_map->headers[id].hits &&
       !cmp_is_fulfill(v0, v1, attr)) {
 
     return 1;
@@ -1183,6 +1204,27 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
 
     }
     
+  }*/
+  
+  if (exec_path_check(afl, cksum, TAINT_CMP)) {
+
+    if (hits < afl->shm.cmp_map->headers[id].hits && 
+      !cmp_is_fulfill(v0, v1, attr)) {
+
+      // try
+      return 1;
+
+    }
+  
+  }
+  else {
+
+    if (!descend(orig_v0, orig_v1, v0, v1, attr)) {
+          
+      return 0;
+
+    }
+
   }
 
   // restore buffer
@@ -1246,8 +1288,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   t = tmp->taint;
   
   // get new iterate val
-  orig_v0 = v0 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v0;
-  orig_v1 = v1 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v1;
+  orig_v0 = v0 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v0;
+  orig_v1 = v1 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v1;
 
   // fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
         
@@ -1315,7 +1357,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
         // fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
 
-        if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
+        /*if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
             !cmp_is_fulfill(v0, v1, attr)) {
           
           // fprintf(f, "solved\n");
@@ -1335,6 +1377,25 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
           // failed
           goto linear_ofs_iter_failed;
 
+        }*/
+
+        if (exec_path_check(afl, cksum, TAINT_CMP)) {
+
+          if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
+            !cmp_is_fulfill(v0, v1, attr)) {
+
+            // try
+            gradient_fuzz(afl, buf, len, &status);
+          
+            cmp_update_stats(afl, tmp->id, reverse);
+          
+            return 1;
+
+          }
+
+          // failed
+          goto linear_ofs_iter_failed;
+        
         }
 
         if (!descend(&orig_v0, &orig_v1, v0, v1, attr)) {
@@ -1768,7 +1829,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    if (!afl->taint_alone_mode) {
+    /*if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
       
@@ -1902,7 +1963,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }
+    }*/
 
   ins_inference_next_iter:
     continue;
@@ -2327,6 +2388,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (common_fuzz_cmplog_stuff(afl, orig_buf, len)) return 1;
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map) - sizeof(struct cmp_extra));
+  
   cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
 
   afl->stage_cur = 0;
@@ -2562,6 +2625,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
       // infer result
       // *taint_mode.ops.inference)(afl, i);
+      // if (cksum == exec_cksum)
       cmp_inference(afl, buf, orig_buf, len, cbuf, i);
 
 taint_next_iterator:
