@@ -563,32 +563,6 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
   
-  // taint havoc
-  if (afl->shm.cmplog_mode &&
-      (u32)len <= afl->cmplog_max_filesize) {
-    
-    if (!afl->queue_cur->taint_cur[TAINT_CMP] && 
-        !afl->queue_cur->taint_failed[TAINT_CMP]) 
-      taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
-
-    if (afl->queue_cur->taint_cur[TAINT_CMP]) {
-    
-      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
-
-       // we should not apply this analysis for every seed.
-      if (afl->symbolic_mode && afl->ready_for_symbolic &&
-         !afl->queue_cur->is_symbolic) {
-        
-        invoke_symbolic(afl, in_buf, len);
-        
-      }
- 
-    }
-
-  }
-
-  memcpy(out_buf, in_buf, len);
-  
   if (unlikely(afl->shm.cmplog_mode &&
                afl->queue_cur->colorized < afl->cmplog_lvl &&
                (u32)len <= afl->cmplog_max_filesize)) {
@@ -617,6 +591,32 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+  // taint havoc
+  if (afl->shm.cmplog_mode &&
+      (u32)len <= afl->cmplog_max_filesize) {
+    
+    if (!afl->queue_cur->taint_cur[TAINT_CMP] && 
+        !afl->queue_cur->taint_failed[TAINT_CMP]) 
+      taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
+
+    if (afl->queue_cur->taint_cur[TAINT_CMP]) {
+    
+      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
+
+       // we should not apply this analysis for every seed.
+      if (afl->symbolic_mode && afl->ready_for_symbolic &&
+         !afl->queue_cur->is_symbolic) {
+        
+        invoke_symbolic(afl, in_buf, len);
+        
+      }
+ 
+    }
+
+  }
+
+  memcpy(out_buf, in_buf, len);
+  
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs

@@ -6,7 +6,7 @@
 #define SLIGHT_TAINTED 64
 #define MIN_TAINTED_HAVOC 32
 #define LINEAR_TIME 0xff
-#define PASS_TIME 0x80
+#define PASS_TIME 1
 
 #define SWAPA(_x) ((_x & 0xf8) + ((_x & 7) ^ 0x07))
 
@@ -1768,7 +1768,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    /*if (!afl->taint_alone_mode) {
+    if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
       
@@ -1902,7 +1902,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }*/
+    }
 
   ins_inference_next_iter:
     continue;
@@ -1984,7 +1984,7 @@ u8 rtn_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    if (!afl->taint_alone_mode) {
+    /*if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
         
@@ -2070,7 +2070,7 @@ u8 rtn_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }
+    }*/
 
     rtn_inference_next_iter:
       continue;
@@ -2107,7 +2107,8 @@ void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
     }
     else {
 
-      // ret = rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
+      if (afl->taint_alone_mode)
+        ret = rtn_inference(afl, buf, orig_buf, len, cbuf, ofs, i, loggeds);
     
     }
     
@@ -2343,8 +2344,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
       if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME || 
           afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME || 
-         (afl->pass_stats[mode][tmp[idx]->id].cond >= LINEAR_TIME &&
-          afl->pass_stats[mode][tmp[idx]->id].compl >= LINEAR_TIME))
+         (afl->pass_stats[mode][tmp[idx]->id].cond >= PASS_TIME &&
+          afl->pass_stats[mode][tmp[idx]->id].compl >= PASS_TIME))
         continue;
 
       memcpy(buf, orig_buf, len);
