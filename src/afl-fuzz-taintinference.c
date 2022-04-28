@@ -2366,9 +2366,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
           tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
 
       if (afl->pass_stats[mode][tmp[idx]->id].total >= LINEAR_TIME || 
-          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME || 
-         (afl->pass_stats[mode][tmp[idx]->id].cond >= PASS_TIME &&
-          afl->pass_stats[mode][tmp[idx]->id].compl >= PASS_TIME))
+          afl->pass_stats[mode][tmp[idx]->id].faileds >= LINEAR_TIME)
         continue;
 
       if (tmp[idx]->inst_type == CMP_TYPE_INS && 
