@@ -1692,9 +1692,6 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
   for(u32 j = 0; j < loggeds; j++) {
         
-    //common subpath check
-    // if (afl->orig_cmp_map->cksum[i][j] != afl->shm.cmp_map->cksum[i][j]) continue;
-
     o = &afl->shm.cmp_map->log[i][j];
     orig_o = &afl->orig_cmp_map->log[i][j];
 
@@ -1716,6 +1713,9 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       s_v1 = o->v1;
 
     } 
+
+    //common subpath check
+    if (afl->shm.cmp_map->extra.cksum[i][j] != afl->orig_cmp_map->extra.cksum[i][j]) continue;
 
     for (u32 k = 0; k < j; ++k) {
 
@@ -1952,7 +1952,7 @@ u8 rtn_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
   for(u32 j = 0; j < loggeds; j++) {
         
     //common subpath check
-    // if (afl->orig_cmp_map->cksum[i][j] != afl->shm.cmp_map->cksum[i][j]) continue;
+    if (afl->shm.cmp_map->extra.cksum[i][j] != afl->orig_cmp_map->extra.cksum[i][j]) continue;
 
     o = &((struct cmpfn_operands *)afl->shm.cmp_map->log[i])[j];
     orig_o = &((struct cmpfn_operands *)afl->orig_cmp_map->log[i])[j];
@@ -2111,8 +2111,8 @@ void cmp_inference(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 *cbuf, u
     
     // skip inst.
     if (!loggeds ||
-        afl->pass_stats[TAINT_CMP][i].total >= LINEAR_TIME ||
-        afl->ins_tainted[i >> 3] & 1 << (7 & i)) continue;
+          afl->pass_stats[TAINT_CMP][i].total >= LINEAR_TIME ||
+          afl->ins_tainted[i >> 3] & 1 << (7 & i)) continue;
 
     if (loggeds > CMP_MAP_H) 
       loggeds = CMP_MAP_H;
@@ -2498,8 +2498,9 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (unlikely((*taint_mode.ops.common_fuzz_staff)(afl, orig_buf, len))) return 1;
   
-  memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
-
+  //memcpy(taint_mode.orig_map, taint_mode.map, taint_mode.map_size);
+  memcpy(afl->orig_cmp_map, afl->shm.cmp_map, sizeof(struct cmp_map));
+  
   // cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
   
   // check unstable
