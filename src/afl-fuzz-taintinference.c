@@ -2328,7 +2328,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   // linear search
 
-  u8 *queue_fn = "", *temp_buf;
+  u8 *queue_fn = "";
   FILE *f = NULL;
   u8 ret = 0;
   u64 cksum = 0;
@@ -2352,7 +2352,6 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
   memcpy(buf, orig_buf, len);
   
-  temp_buf = ck_alloc(len);
   afl->stage_cur = 0;
 
   // if (afl->queue_cur->taint_cur[mode] <= SLIGHT_TAINTED) {
@@ -2463,8 +2462,6 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   new_hit_cnt = afl->queued_items + afl->saved_crashes;
   afl->stage_finds[STAGE_TAINT_LS] += new_hit_cnt - orig_hit_cnt;
   afl->stage_cycles[STAGE_TAINT_LS] += afl->fsrv.total_execs - orig_execs;
-
-  ck_free(temp_buf);
 
   ck_free(queue_fn);
   fclose(f);
