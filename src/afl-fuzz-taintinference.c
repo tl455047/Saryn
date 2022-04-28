@@ -2793,8 +2793,8 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
     }
 
     // write c_byte to file
-    //if (afl->taint_alone_mode)
-    // write_to_taint(afl, mode);
+    if (afl->taint_alone_mode)
+      write_to_taint(afl, mode);
 
   }
   else if(afl->queue_cur->taint_failed[mode]) {
