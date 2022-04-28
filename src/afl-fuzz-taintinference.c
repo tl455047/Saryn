@@ -2804,7 +2804,7 @@ u8 taint_inference_stage(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mo
 
   // update_state(afl, mode);
 
-  taint_debug(afl, mode);
+  // taint_debug(afl, mode);
 
   return 0;
 
