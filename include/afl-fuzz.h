@@ -460,9 +460,9 @@ struct afl_pass_stat {
 
   u8 total;
   u8 faileds;
-  u8 cond;
-  u8 compl;
-  
+  u8 ls_total[2];
+  u8 ls_faileds[2];
+
 };
 
 struct foreign_sync {
