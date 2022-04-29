@@ -2376,8 +2376,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
         
         if (ret == 0) {
           // condition failed, update failed
-          if (afl->pass_stats[mode][tmp[idx]->id].faileds < 0xff) 
-            afl->pass_stats[mode][tmp[idx]->id].faileds++;
+          /*if (afl->pass_stats[mode][tmp[idx]->id].faileds < 0xff) 
+            afl->pass_stats[mode][tmp[idx]->id].faileds++;*/
 
         }
 
