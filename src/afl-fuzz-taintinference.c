@@ -1245,8 +1245,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   // if (unlikely(common_fuzz_cmplog_stuff(afl, buf, len))) return 0;
   
   // get new iterate val
-  orig_v0 = v0 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v0;
-  orig_v1 = v1 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v1;
+  orig_v0 = v0 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v0;
+  orig_v1 = v1 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v1;
 
   //fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
         
@@ -1286,18 +1286,18 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
       if (status == 1) {
         
         //fprintf(f, "solved\n");
-        // try
-        gradient_fuzz(afl, buf, len, &status);
-        /*if (exec_path_check(afl, cksum, TAINT_CMP)) {
+        if (exec_path_check(afl, cksum, TAINT_CMP)) {
           
+          // try
+          gradient_fuzz(afl, buf, len, &status);
         
           // restore buf
-          byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
+          //byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
 
-          if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
-            afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
+          /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
+            afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;*/
 
-        }*/
+        }
 
         return 1;
 
@@ -1308,7 +1308,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
       }
 
-      u32 k = 0x80;
+      u32 k = 0xfe;
       while (k--) {
         
         // iterate
@@ -1327,18 +1327,19 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
           !cmp_is_fulfill(v0, v1, attr)) {
           
-          // try
-          gradient_fuzz(afl, buf, len, &status);
           //fprintf(f, "solved\n");
-          /*if (exec_path_check(afl, cksum, TAINT_CMP)) { 
-            
-            // restore buf
-            byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
+          if (exec_path_check(afl, cksum, TAINT_CMP)) { 
 
-            if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
-              afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
+            // try
+            gradient_fuzz(afl, buf, len, &status);
+
+            // restore buf
+            //byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
+
+            /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
+              afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;*/
           
-          }*/
+          }
 
           return 1;
 
@@ -1797,7 +1798,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    if (!afl->taint_alone_mode) {
+    /*if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
       
@@ -1931,7 +1932,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }
+    }*/
 
   ins_inference_next_iter:
     continue;
@@ -2343,6 +2344,7 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (common_fuzz_cmplog_stuff(afl, orig_buf, len)) return 1;
+  memcpy(afl->orig_cmp_map->log, afl->shm.cmp_map->log, sizeof(struct cmp_operands) * CMP_MAP_W * CMP_MAP_H);
   cksum = hash64(afl->cmplog_fsrv.trace_bits, afl->cmplog_fsrv.map_size, HASH_CONST);
  
   afl->stage_cur = 0;
