@@ -1308,9 +1308,9 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
       }
 
-      u32 k = 0xfe;
+      u32 k = 0x80;
       while (k--) {
-        
+
         // iterate
         byte_level_mutate(afl, buf, t->pos + i, ops, step);
     
@@ -1798,7 +1798,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
       
     }
 
-    /*if (!afl->taint_alone_mode) {
+    if (!afl->taint_alone_mode) {
 
       for(u32 k = 0; k < sect; k++) {
       
@@ -1932,7 +1932,7 @@ u8 ins_inference(afl_state_t *afl, u8* buf, u8 *orig_buf, u32 len, u8 *cbuf, u32
 
       }
 
-    }*/
+    }
 
   ins_inference_next_iter:
     continue;
