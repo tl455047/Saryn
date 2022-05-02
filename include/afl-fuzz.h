@@ -460,8 +460,8 @@ struct afl_pass_stat {
 
   u8 total;
   u8 faileds;
-  u8 ls_total[2];
-  u8 ls_faileds[2];
+  u32 ls_total[2];
+  u32 ls_faileds[2];
 
 };
 

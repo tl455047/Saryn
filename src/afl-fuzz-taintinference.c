@@ -6,7 +6,7 @@
 #define SLIGHT_TAINTED 64
 #define MIN_TAINTED_HAVOC 32
 #define LINEAR_TIME 0xff
-#define PASS_TIME 0xff
+#define PASS_TIME 0x200
 
 #define SWAPA(_x) ((_x & 0xf8) + ((_x & 7) ^ 0x07))
 
@@ -1254,7 +1254,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
   // not yet handling
   if (attr > IS_LE) 
-    return 0;
+    return 0; 
 
   if (!cmp_is_fulfill(v0, v1, attr)) {
     
@@ -1266,9 +1266,9 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
   }
 
-  /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] >= 0xff ||
-      afl->pass_stats[TAINT_CMP][tmp->id].ls_faileds[reverse] >= 0xff)
-    return 0;*/
+  if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] >= PASS_TIME ||
+      afl->pass_stats[TAINT_CMP][tmp->id].ls_faileds[reverse] >= PASS_TIME)
+    return 0;
 
   //fprintf(f, "attr: %u\n", attr);
 
@@ -1286,6 +1286,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
       if (status == 1) {
         
         //fprintf(f, "solved\n");
+        afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
+
         if (exec_path_check(afl, cksum, TAINT_CMP)) {
           
           // try
@@ -1293,9 +1295,6 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         
           // restore buf
           //byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
-
-          /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
-            afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;*/
 
         }
 
@@ -1308,7 +1307,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
       }
 
-      u32 k = 0x80;
+      u32 k = 0xff;
       while (k--) {
 
         // iterate
@@ -1328,6 +1327,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
           !cmp_is_fulfill(v0, v1, attr)) {
           
           //fprintf(f, "solved\n");
+          afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
+        
           if (exec_path_check(afl, cksum, TAINT_CMP)) { 
 
             // try
@@ -1336,9 +1337,6 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
             // restore buf
             //byte_level_mutate(afl, buf, t->pos + i, ops ^ 1, 1); 
 
-            /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse] < 0xff)
-              afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;*/
-          
           }
 
           return 1;
@@ -1377,8 +1375,8 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
 
   }
   
-  /*if (afl->pass_stats[TAINT_CMP][tmp->id].ls_faileds[reverse] < 0xff)
-    afl->pass_stats[TAINT_CMP][tmp->id].ls_faileds[reverse]++;*/
+
+  afl->pass_stats[TAINT_CMP][tmp->id].ls_faileds[reverse]++;
 
   return 0;
 
@@ -2464,7 +2462,7 @@ u8 taint(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
 
       // byte-level mutate
       for(u32 k = 0; k < sect; k++)
-        byte_level_mutate(afl, buf, i + k, j, 1); 
+        byte_level_mutate(afl, buf, i + k, TAINT_INFER_MUTATOR_NUM - j - 1, 1); 
 
       /**
        * execution path check

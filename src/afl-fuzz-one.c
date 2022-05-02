@@ -568,13 +568,20 @@ u8 fuzz_one_original(afl_state_t *afl) {
       (u32)len <= afl->cmplog_max_filesize) {
     
     if (!afl->queue_cur->taint_cur[TAINT_CMP] && 
-        !afl->queue_cur->taint_failed[TAINT_CMP]) 
+        !afl->queue_cur->taint_failed[TAINT_CMP]) {
+    
       taint_inference_stage(afl, out_buf, in_buf, len, TAINT_CMP);
+
+      if (afl->queue_cur->taint_cur[TAINT_CMP]) {
+
+        taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
+
+      }
+    
+    }
 
     if (afl->queue_cur->taint_cur[TAINT_CMP]) {
     
-      taint_fuzz(afl, out_buf, in_buf, len, TAINT_CMP);
-
        // we should not apply this analysis for every seed.
       if (afl->symbolic_mode && afl->ready_for_symbolic &&
          !afl->queue_cur->is_symbolic) {
