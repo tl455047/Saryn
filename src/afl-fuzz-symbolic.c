@@ -42,8 +42,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
     if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
       continue;
     
-    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].faileds >= 0xff || 
-        afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= 0xff)
+    if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= 0xff)
       continue;
     
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
