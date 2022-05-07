@@ -680,33 +680,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
 
           if (direct_mode) {
             
-            cc_params[cc_par_cnt++] = "-mllvm";
-            cc_params[cc_par_cnt++] = "-pc-guard-direct-mode=1";
-
-            u8 *direct_dir = getenv("AFL_DIRECT_DIR");
-
-            if (!direct_dir) {
-              
-              cc_params[cc_par_cnt++] = "-mllvm";
-              cc_params[cc_par_cnt++] = 
-                alloc_printf("-pc-guard-direct-distance=/tmp/distance.cfg.txt");
-              
-              cc_params[cc_par_cnt++] = "-mllvm";
-              cc_params[cc_par_cnt++] = 
-                alloc_printf("-pc-guard-direct-target=/tmp/BBtargets.txt");
-            
-            }
-            else {
-              
-              cc_params[cc_par_cnt++] = "-mllvm";
-              cc_params[cc_par_cnt++] = 
-                alloc_printf("-pc-guard-direct-distance=%s/distance.cfg.txt", direct_dir);
-              
-              cc_params[cc_par_cnt++] = "-mllvm";
-              cc_params[cc_par_cnt++] = 
-                alloc_printf("-pc-guard-direct-target=%s/BBtargets.txt", direct_dir);
-
-            }
 
           }
 

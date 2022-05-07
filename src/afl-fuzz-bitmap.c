@@ -211,38 +211,12 @@ inline u8 has_new_bits(afl_state_t *afl, u8 *virgin_map) {
 
   u32 i = ((afl->fsrv.real_map_size + 7) >> 3);
 
-  if (afl->direct_mode) {
-
-    /* Calculate distance of current input to targets */
-    u64* total_distance = (u64 *) (afl->fsrv.trace_bits + afl->fsrv.real_map_size);
-    u64* total_count = (u64 *) (afl->fsrv.trace_bits + afl->fsrv.real_map_size + 8);
-
-    if (*total_count > 0)
-      afl->cur_distance = (double) (*total_distance) / (double) (*total_count);
-    else
-      afl->cur_distance = -1.0;
-  
-  }
-
 #else
-  // Does our instrumentation cover 32 bit yet? 
+  
   u32 *current = (u32 *)afl->fsrv.trace_bits;
   u32 *virgin = (u32 *)virgin_map;
 
   u32 i = ((afl->fsrv.real_map_size + 3) >> 2);
-
-  if (afl->direct_mode) {
-
-    /* Calculate distance of current input to targets */
-    u32* total_distance = (u32 *) (afl->fsrv.trace_bits + afl->fsrv.real_map_size);
-    u32* total_count = (u32 *) (afl->fsrv.trace_bits + afl->fsrv.real_map_size + 4);
-
-    if (*total_count > 0)
-      afl->cur_distance = (double) (*total_distance) / (double) (*total_count);
-    else
-      afl->cur_distance = -1.0;
-
-  }
 
 #endif                                                     /* ^WORD_SIZE_64 */
 

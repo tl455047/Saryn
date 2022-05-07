@@ -373,23 +373,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     memcpy(afl->first_trace, afl->fsrv.trace_bits, afl->fsrv.map_size);
     hnb = has_new_bits(afl, afl->virgin_bits);
-
-    if (afl->direct_mode) {
-
-      q->distance = afl->cur_distance;
-      if (afl->cur_distance > 0) {
-
-        if (afl->max_distance <= 0) {
-          afl->max_distance = afl->cur_distance;
-          afl->min_distance = afl->cur_distance;
-        }
-        if (afl->cur_distance > afl->max_distance) afl->max_distance = afl->cur_distance;
-        if (afl->cur_distance < afl->min_distance) afl->min_distance = afl->cur_distance;
-
-      }
-      
-    }
-    
     if (hnb > new_bits) { new_bits = hnb; }
 
   }
@@ -432,23 +415,6 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     if (q->exec_cksum != cksum) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);
-
-      if (afl->direct_mode) {
-
-        q->distance = afl->cur_distance;
-        if (afl->cur_distance > 0) {
-
-          if (afl->max_distance <= 0) {
-            afl->max_distance = afl->cur_distance;
-            afl->min_distance = afl->cur_distance;
-          }
-          if (afl->cur_distance > afl->max_distance) afl->max_distance = afl->cur_distance;
-          if (afl->cur_distance < afl->min_distance) afl->min_distance = afl->cur_distance;
-
-        }
-        
-      }
-
       if (hnb > new_bits) { new_bits = hnb; }
 
       if (q->exec_cksum) {
