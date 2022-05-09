@@ -120,7 +120,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -138,7 +138,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -156,7 +156,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -174,7 +174,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -192,7 +192,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c16 = M.getOrInsertFunction("__cmplog_ins_hook16", VoidTy, Int128Ty,
-                                  Int128Ty, Int8Ty
+                                  Int128Ty, Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                   ,
                                   NULL
@@ -210,7 +210,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       cN = M.getOrInsertFunction("__cmplog_ins_hookN", VoidTy, Int128Ty,
-                                 Int128Ty, Int8Ty, Int8Ty
+                                 Int128Ty, Int8Ty, Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -528,29 +528,6 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
-
-          MDNode *N;
-          if ((N = cmpInst->getMetadata("cmp.distance"))) {
-            
-            /*ConstantAsMetadata * constantAsMetadata = nullptr;
-            if ((constantAsMetadata = dyn_cast<ConstantAsMetadata>(N->getOperand(0)))) {
-              errs() << constantAsMetadata->getValue()->getUniqueInteger().getSExtValue() << "\n";
-            }*/
-            
-            // errs() << "contain cmp.distance\n";
-
-            for (auto it = N->op_begin(); it != N->op_end(); it++) {
-                
-              Metadata *Meta = it->get();
-              DIEnumerator *DIEn;
-                
-              if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
-                errs() << DIEn->getName() << " " << DIEn->getValue().getSExtValue() << "\n";
-              }
-
-            }
-            
-          }
           
           // first bitcast to integer type of the same bitsize as the original
           // type (this is a nop, if already integer)
@@ -584,6 +561,35 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
 
           // fprintf(stderr, "_ExtInt(%u) castTo %u with attr %u didcast %u\n",
           //         max_size, cast_size, attr);
+
+          MDNode *N;
+          int dist = -1;
+          if ((N = cmpInst->getMetadata("cmp.distance"))) {
+            
+            /*ConstantAsMetadata * constantAsMetadata = nullptr;
+            if ((constantAsMetadata = dyn_cast<ConstantAsMetadata>(N->getOperand(0)))) {
+              errs() << constantAsMetadata->getValue()->getUniqueInteger().getSExtValue() << "\n";
+            }*/
+
+            // errs() << "contain cmp.distance\n";
+
+            for (auto it = N->op_begin(); it != N->op_end(); it++) {
+                
+              Metadata *Meta = it->get();
+              DIEnumerator *DIEn;
+                
+              if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+                // errs() << DIEn->getName() << " " << DIEn->getValue().getSExtValue() << "\n";
+                dist = DIEn->getValue().getSExtValue();
+
+              }
+
+            }
+            
+          }
+          
+          // set distance argument
+          args.push_back(ConstantInt::get(Int32Ty, dist, true));
 
           switch (cast_size) {
 

@@ -75,8 +75,9 @@ typedef struct cmp_operands cmp_map_list[CMP_MAP_H];
 
 struct cmp_extra {
 
-  u64                    ret_addr[CMP_MAP_W];
-  
+  u64                   ret_addr[CMP_MAP_W];
+  s32                   dist[CMP_MAP_W];
+
 };
 
 struct cmp_map {

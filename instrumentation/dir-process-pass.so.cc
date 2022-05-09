@@ -165,7 +165,7 @@ void DirProcessPass::setDistanceMetaData(Instruction *I, std::string BBName, int
   if (distance < 0)
     distance  = 100 * 65536;
 
-  errs() << BBName << " " << distance << "\n";
+  //errs() << BBName << " " << distance << "\n";
   
   DIEnumerator *DIEn = DIEnumerator::get(*C, APInt(32, distance, true), true, 
     MDString::get(*C, BBName));
@@ -623,7 +623,7 @@ bool DirProcessPass::runOnModule(Module &M) {
 
       bool findTarget = false;
       unsigned reachableBB = reachable.size();
-      int dist = -1;
+    
       for (auto &BB : F) {
         
         std::string filename;

@@ -622,6 +622,28 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
+  u8 *queue_fn = "";
+  FILE *f = NULL;
+ 
+  queue_fn = alloc_printf("%s/taint/cmp/id:%06u,distance,debug", 
+    afl->out_dir, afl->queue_cur->id);
+
+  f = create_ffile(queue_fn);
+
+  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+  common_fuzz_cmplog_stuff(afl, in_buf, len);
+
+  for(u32 i = 0; i < CMP_MAP_W; i++) {
+
+    if (!afl->shm.cmp_map->headers[i].hits) continue;
+  
+    fprintf(f, "%u %d\n", i, afl->shm.cmp_map->extra.dist[i]);
+
+  }
+
+  ck_free(queue_fn);
+  fclose(f);
+
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
      if it has gone through deterministic testing in earlier, resumed runs

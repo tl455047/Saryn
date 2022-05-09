@@ -118,7 +118,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -136,7 +136,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c2 = M.getOrInsertFunction("__cmplog_ins_hook2", VoidTy, Int16Ty, Int16Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -154,7 +154,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c4 = M.getOrInsertFunction("__cmplog_ins_hook4", VoidTy, Int32Ty, Int32Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -172,7 +172,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   Constant *
 #endif
       c8 = M.getOrInsertFunction("__cmplog_ins_hook8", VoidTy, Int64Ty, Int64Ty,
-                                 Int8Ty
+                                 Int8Ty, Int32Ty
 #if LLVM_VERSION_MAJOR < 5
                                  ,
                                  NULL
@@ -332,6 +332,9 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
               args.push_back(bitsize);
 
             }
+
+            // set distance argument
+            args.push_back(ConstantInt::get(Int32Ty, -1, true));
 
             switch (cast_size) {
 
