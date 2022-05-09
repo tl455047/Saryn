@@ -591,7 +591,7 @@ static void edit_params(u32 argc, char **argv, char **envp) {
       if (lto_mode && !have_c) {
 
         cc_params[cc_par_cnt++] = alloc_printf(
-            "-Wl,-mllvm=-load=%s/direct-preprocess-pass.so", obj_path);
+            "-Wl,-mllvm=-load=%s/dir-process-pass.so", obj_path);
 
       } else {
 
@@ -599,32 +599,36 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = "-load";
         cc_params[cc_par_cnt++] = "-Xclang";
         cc_params[cc_par_cnt++] =
-            alloc_printf("%s/direct-preprocess-pass.so", obj_path);
+            alloc_printf("%s/dir-process-pass.so", obj_path);
         
       }
 
+      cc_params[cc_par_cnt++] = "-mllvm";
+      cc_params[cc_par_cnt++] = 
+              alloc_printf("-preprocess=1");
+       
       u8 *direct_dir = getenv("AFL_DIRECT_DIR");
       
       if (!direct_dir) {
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-preprocess-targets=/tmp/BBtargets.txt");
+              alloc_printf("-targets=/tmp/BBtargets.txt");
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-preprocess-outdir=/tmp");
+              alloc_printf("-outdir=/tmp");
       
       }
       else {
 
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-preprocess-targets=%s/BBtargets.txt", direct_dir);
+              alloc_printf("-targets=%s/BBtargets.txt", direct_dir);
         
         cc_params[cc_par_cnt++] = "-mllvm";
         cc_params[cc_par_cnt++] = 
-              alloc_printf("-preprocess-outdir=%s", direct_dir);
+              alloc_printf("-outdir=%s", direct_dir);
       
       }
 
@@ -678,11 +682,6 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
 
-          if (direct_mode) {
-            
-
-          }
-
         }
 
   #endif
@@ -715,7 +714,59 @@ static void edit_params(u32 argc, char **argv, char **envp) {
         cc_params[cc_par_cnt++] = alloc_printf("%s/afl-llvm-pass.so", obj_path);
 
       }
+      
+      if (direct_mode) {
 
+        if (lto_mode && !have_c) {
+
+          cc_params[cc_par_cnt++] = alloc_printf(
+              "-Wl,-mllvm=-load=%s/dir-process-pass.so", obj_path);
+
+        } else {
+
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] = "-load";
+          cc_params[cc_par_cnt++] = "-Xclang";
+          cc_params[cc_par_cnt++] =
+              alloc_printf("%s/dir-process-pass.so", obj_path);
+          
+        }
+          
+        u8 *direct_dir = getenv("AFL_DIRECT_DIR");
+
+        if (!direct_dir) {
+          
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-distance=/tmp/distance.cfg.txt");
+          
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-targets=/tmp/BBtargets.txt");
+
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-callsite=/tmp/callsite.txt");
+        
+        }
+        else {
+          
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-distance=%s/distance.cfg.txt", direct_dir);
+          
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-targets=%s/BBtargets.txt", direct_dir);
+
+          cc_params[cc_par_cnt++] = "-mllvm";
+          cc_params[cc_par_cnt++] = 
+            alloc_printf("-callsite=%s/callsite.txt", direct_dir);
+
+        }
+
+      }
+    
     }
 
     if (cmplog_mode) {
@@ -2184,7 +2235,7 @@ int main(int argc, char **argv, char **envp) {
   if (!be_quiet && direct_mode)
     printf("Direct mode\n");
 
-  direct_preprocess_mode = getenv("AFL_DIRECT_PREPROCESS") || getenv("AFL_LLVM_DIRECT_PREPROCESS");
+  direct_preprocess_mode = getenv("AFL_DIR_PREPROCESS") || getenv("AFL_LLVM_DIR_PREPROCESS");
   if (!be_quiet && direct_preprocess_mode)
     printf("Direct Preprocess mode\n");
 

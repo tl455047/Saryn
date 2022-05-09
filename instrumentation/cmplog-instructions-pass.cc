@@ -529,6 +529,29 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
           // errs() << "[CMPLOG] cmp  " << *cmpInst << "(in function " <<
           // cmpInst->getFunction()->getName() << ")\n";
 
+          MDNode *N;
+          if ((N = cmpInst->getMetadata("cmp.distance"))) {
+            
+            /*ConstantAsMetadata * constantAsMetadata = nullptr;
+            if ((constantAsMetadata = dyn_cast<ConstantAsMetadata>(N->getOperand(0)))) {
+              errs() << constantAsMetadata->getValue()->getUniqueInteger().getSExtValue() << "\n";
+            }*/
+            
+            // errs() << "contain cmp.distance\n";
+
+            for (auto it = N->op_begin(); it != N->op_end(); it++) {
+                
+              Metadata *Meta = it->get();
+              DIEnumerator *DIEn;
+                
+              if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
+                errs() << DIEn->getName() << " " << DIEn->getValue().getSExtValue() << "\n";
+              }
+
+            }
+            
+          }
+          
           // first bitcast to integer type of the same bitsize as the original
           // type (this is a nop, if already integer)
           Value *op0_i = IRB.CreateBitCast(
