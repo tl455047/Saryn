@@ -334,7 +334,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
             }
 
             // set distance argument
-            args.push_back(ConstantInt::get(Int32Ty, -1, true));
+            args.push_back(ConstantInt::get(Int32Ty, -2, true));
 
             switch (cast_size) {
 

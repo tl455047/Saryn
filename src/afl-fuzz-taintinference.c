@@ -1122,7 +1122,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
   v0 = afl->shm.cmp_map->log[id][hits].v0;
   v1 = afl->shm.cmp_map->log[id][hits].v1;
 
-  //fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+  fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
 
   if (hits < afl->shm.cmp_map->headers[id].hits &&
       !cmp_is_fulfill(v0, v1, attr)) {
@@ -1157,7 +1157,7 @@ u8 cmp_choose_move_ops(afl_state_t *afl, u8* buf, u32 len, u32 ofs, u32 id,
   v0 = afl->shm.cmp_map->log[id][hits].v0;
   v1 = afl->shm.cmp_map->log[id][hits].v1;
 
-  //fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+  fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
   
   if (hits < afl->shm.cmp_map->headers[id].hits &&
       !cmp_is_fulfill(v0, v1, attr)) {
@@ -1248,7 +1248,7 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
   orig_v0 = v0 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v0;
   orig_v1 = v1 = afl->orig_cmp_map->log[tmp->id][tmp->hits].v1;
 
-  //fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
+  fprintf(f, "v0: %08llu v1: %08llu\n", orig_v0, orig_v1);
         
   attr = tmp->attr;
 
@@ -1278,14 +1278,14 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
       
       afl->stage_cur_byte = t->pos + i;
 
-      // fprintf(f, "ofs: %u\n", t->pos + i);
+      fprintf(f, "ofs: %u\n", t->pos + i);
       // decide iterate direction, check if this offset is able to affect inst. 
       status = cmp_choose_move_ops(afl, buf, len, t->pos + i, tmp->id, tmp->hits, 
                     &orig_v0, &orig_v1, &ops, attr, cksum, f);
 
       if (status == 1) {
         
-        //fprintf(f, "solved\n");
+        fprintf(f, "solved\n");
         afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
 
         if (exec_path_check(afl, cksum, TAINT_CMP)) {
@@ -1321,12 +1321,12 @@ u8 cmp_linear_search(afl_state_t *afl, u8* buf, u32 len, u32 cur, u64 cksum, FIL
         v0 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v0;
         v1 = afl->shm.cmp_map->log[tmp->id][tmp->hits].v1;
 
-        //fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
+        fprintf(f, "v0: %08llu v1: %08llu\n", v0, v1);
 
         if (tmp->hits < afl->shm.cmp_map->headers[tmp->id].hits && 
           !cmp_is_fulfill(v0, v1, attr)) {
           
-          //fprintf(f, "solved\n");
+          fprintf(f, "solved\n");
           afl->pass_stats[TAINT_CMP][tmp->id].ls_total[reverse]++;
         
           if (exec_path_check(afl, cksum, TAINT_CMP)) { 
@@ -2335,10 +2335,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   orig_hit_cnt = afl->queued_items + afl->saved_crashes;
   orig_execs = afl->fsrv.total_execs;
   
-  /*queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ls,debug", 
+  queue_fn = alloc_printf("%s/taint/cmp/id:%06u,ls,debug", 
     afl->out_dir, afl->queue_cur->id);
 
-  f = create_ffile(queue_fn);*/
+  f = create_ffile(queue_fn);
   
   memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
   if (common_fuzz_cmplog_stuff(afl, orig_buf, len)) return 1;
@@ -2353,8 +2353,9 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
   
     idx = afl->stage_cur;
 
-    //fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u\n", 
-    //    tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr);
+    fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u ret-addr: %08llx\n", 
+        tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr,
+        tmp[idx]->ret_addr);
 
     memcpy(buf, orig_buf, len);
 
@@ -2390,8 +2391,8 @@ taint_fuzz_failed:
 
   memcpy(buf, orig_buf, len);
 
-  //ck_free(queue_fn);
-  //fclose(f);
+  ck_free(queue_fn);
+  fclose(f);
 
   return 0;
 

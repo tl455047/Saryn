@@ -637,7 +637,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
     if (!afl->shm.cmp_map->headers[i].hits) continue;
   
-    fprintf(f, "%u %d\n", i, afl->shm.cmp_map->extra.dist[i]);
+    fprintf(f, "%u %d %llx\n", i, afl->shm.cmp_map->extra.dist[i], afl->shm.cmp_map->extra.ret_addr[i]);
 
   }
 
