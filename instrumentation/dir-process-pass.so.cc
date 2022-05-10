@@ -333,7 +333,7 @@ void DirProcessPass::findReachableBBFromTarget(BasicBlock *BB, std::unordered_se
 
 }
 
-static bool isBlacklisted(const Function *F) {
+static bool isBlacklisted(StringRef funName) {
   
   static const SmallVector<std::string, 8> Blacklist = {
     "asan.",
@@ -346,8 +346,9 @@ static bool isBlacklisted(const Function *F) {
     "realloc"
   };
 
+
   for (auto const &BlacklistFunc : Blacklist) {
-    if (F->getName().startswith(BlacklistFunc)) {
+    if (funName.startswith(BlacklistFunc)) {
       return true;
     }
   }
@@ -399,7 +400,7 @@ bool DirProcessPass::runOnModule(Module &M) {
       bool hasBBs = false;
       std::string funcName = F.getName().str();
 
-      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(&F))
+      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(F.getName()))
         continue;
 
       bool findTarget = false;  
@@ -457,10 +458,12 @@ bool DirProcessPass::runOnModule(Module &M) {
           if ((selectcallInst = dyn_cast<CallInst>(&I))) {
             
             // callInsts.push_back(selectcallInst);
-            if (!F.isIntrinsic() && !F.isDeclaration() && !isBlacklisted(selectcallInst->getCalledFunction())) {
+            auto callF = selectcallInst->getCalledFunction();
 
-              BBCallsF << F.getName().str() << ":" << selectcallInst->getCalledFunction()->getName().str() << "\n";
-              BBCalls << BBName << "," << selectcallInst->getCalledFunction()->getName().str() << "\n";
+            if (callF && !callF->isIntrinsic() && !callF->isDeclaration() && !isBlacklisted(callF->getName())) {
+
+              BBCallsF << F.getName().str() << ":" << callF->getName().str() << "\n";
+              BBCalls << BBName << "," << callF->getName().str() << "\n";
             
             }
 
@@ -613,7 +616,7 @@ bool DirProcessPass::runOnModule(Module &M) {
 
     for (auto &F : M) {    
 
-      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(&F))
+      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(F.getName()))
         continue;
 
       // skip function not in call site

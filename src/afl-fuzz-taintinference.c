@@ -221,6 +221,7 @@ static void add_cmp_tainted_info(afl_state_t *afl, u32 id, u32 hits, u8 type, u3
     new_info->inst_type = c_map->headers[id].type;
     new_info->type = type;
     new_info->attr = attr;
+    new_info->dist = c_map->extra.dist[id];
     new_info->ret_addr = c_map->extra.ret_addr[id];
 
     new_info->taint = add_tainted(new_info->taint, ofs, len);
@@ -2291,7 +2292,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     for(u32 i = 0; i < afl->stage_max / inst_stage_max; i++) {
 
       idx = rand_below(afl, afl->queue_cur->taint_cur[mode]);
-    
+
+      if (afl->direct_mode && tmp[idx]->dist < 0)
+        continue;
+
       if (taint_havoc(afl, buf, orig_buf, len, 
           (++j) * inst_stage_max, tmp[idx]->taint)) goto taint_fuzz_failed;
     
@@ -2303,7 +2307,10 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     j = 0;
     for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
   
-      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+      /*if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;*/
+
+      if (afl->direct_mode && tmp[idx]->dist < 0)
         continue;
 
       if (taint_havoc(afl, buf, orig_buf, len, 
@@ -2356,6 +2363,9 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     fprintf(f, "id: %06u hits: %06u type: %06u inst_type: %06u attr: %06u ret-addr: %08llx\n", 
         tmp[idx]->id, tmp[idx]->hits, tmp[idx]->type, tmp[idx]->inst_type, tmp[idx]->attr,
         tmp[idx]->ret_addr);
+
+    if (afl->direct_mode && tmp[idx]->dist < 0)
+      continue;
 
     memcpy(buf, orig_buf, len);
 
