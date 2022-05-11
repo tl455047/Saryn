@@ -682,6 +682,31 @@ static void edit_params(u32 argc, char **argv, char **envp) {
           cc_params[cc_par_cnt++] =
               alloc_printf("%s/SanitizerCoveragePCGUARD.so", obj_path);
 
+          if (direct_mode) {
+            
+            cc_params[cc_par_cnt++] = "-mllvm";
+            cc_params[cc_par_cnt++] = 
+                    alloc_printf("-pc-guard-direct-mode=1");
+
+            u8 *direct_dir = getenv("AFL_DIRECT_DIR");
+
+            if (!direct_dir) {
+              
+              cc_params[cc_par_cnt++] = "-mllvm";
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-pc-guard-direct-distance=/tmp/distance.cfg.txt");
+            
+            }
+            else {
+              
+              cc_params[cc_par_cnt++] = "-mllvm";
+              cc_params[cc_par_cnt++] = 
+                alloc_printf("-pc-guard-direct-distance=%s/distance.cfg.txt", direct_dir);
+
+            }
+
+          }
+
         }
 
   #endif

@@ -622,27 +622,39 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  u8 *queue_fn = "";
-  FILE *f = NULL;
- 
-  queue_fn = alloc_printf("%s/taint/cmp/id:%06u,distance,debug", 
-    afl->out_dir, afl->queue_cur->id);
-
-  f = create_ffile(queue_fn);
-
-  memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
-  common_fuzz_cmplog_stuff(afl, in_buf, len);
-
-  for(u32 i = 0; i < CMP_MAP_W; i++) {
-
-    if (!afl->shm.cmp_map->headers[i].hits) continue;
+  if (afl->direct_mode) {
   
-    fprintf(f, "%u %d %llx\n", i, afl->shm.cmp_map->extra.dist[i], afl->shm.cmp_map->extra.ret_addr[i]);
+    u8 *queue_fn = "";
+    FILE *f = NULL;
+  
+    queue_fn = alloc_printf("%s/taint/cmp/id:%06u,distance,debug", 
+      afl->out_dir, afl->queue_cur->id);
 
+    f = create_ffile(queue_fn);
+
+    memset(afl->shm.cmp_map->headers, 0, sizeof(struct cmp_header) * CMP_MAP_W);
+    common_fuzz_cmplog_stuff(afl, in_buf, len);
+
+    common_fuzz_stuff(afl, in_buf, len);
+    
+    for(u32 i = 0; i < CMP_MAP_W; i++) {
+
+      if (!afl->shm.cmp_map->headers[i].hits) continue;
+    
+      fprintf(f, "%u %d %llx\n", i, afl->shm.cmp_map->extra.dist[i], afl->shm.cmp_map->extra.ret_addr[i]);
+
+    }
+ 
+    fprintf(f, "seed distance: %llu total BBs: %llu align: %llu align: %llu\n", 
+                                                        *(u64 *)(afl->fsrv.trace_bits + afl->fsrv.real_map_size),
+                                                        *(u64 *)(afl->fsrv.trace_bits + afl->fsrv.real_map_size + 8),
+                                                        *(u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size),
+                                                        *(u64 *)(afl->fsrv.trace_bits + afl->fsrv.map_size + 8));
+
+    ck_free(queue_fn);
+    fclose(f);
+   
   }
-
-  ck_free(queue_fn);
-  fclose(f);
 
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
