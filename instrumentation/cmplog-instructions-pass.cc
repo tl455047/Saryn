@@ -579,7 +579,7 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
               DIEnumerator *DIEn;
                 
               if ((DIEn = dyn_cast<DIEnumerator>(Meta))) {  
-                // errs() << DIEn->getName() << " " << DIEn->getValue().getSExtValue() << "\n";
+                errs() << DIEn->getName() << " " << DIEn->getValue().getSExtValue() << "\n";
                 dist = DIEn->getValue().getSExtValue();
 
               }

@@ -400,7 +400,7 @@ bool DirProcessPass::runOnModule(Module &M) {
       bool hasBBs = false;
       std::string funcName = F.getName().str();
 
-      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(F.getName()))
+      if (isBlacklisted(F.getName()))
         continue;
 
       bool findTarget = false;  
@@ -460,7 +460,7 @@ bool DirProcessPass::runOnModule(Module &M) {
             // callInsts.push_back(selectcallInst);
             auto callF = selectcallInst->getCalledFunction();
 
-            if (callF && !callF->isIntrinsic() && !callF->isDeclaration() && !isBlacklisted(callF->getName())) {
+            if (callF && !isBlacklisted(callF->getName())) {
 
               BBCallsF << F.getName().str() << ":" << callF->getName().str() << "\n";
               BBCalls << BBName << "," << callF->getName().str() << "\n";
@@ -616,7 +616,7 @@ bool DirProcessPass::runOnModule(Module &M) {
 
     for (auto &F : M) {    
 
-      if (F.isIntrinsic() || F.isDeclaration() || isBlacklisted(F.getName()))
+      if (isBlacklisted(F.getName()))
         continue;
 
       // skip function not in call site
@@ -667,8 +667,9 @@ bool DirProcessPass::runOnModule(Module &M) {
             
             // if is in call site caller
             auto it = callSites.find(F.getName().str());
-            if (it != callSites.end() && std::find(it->second.begin(), it->second.end(), 
-              selectcallInst->getCalledFunction()->getName().str()) != it->second.end()) {
+            auto callF = selectcallInst->getCalledFunction();
+            if (callF && it != callSites.end() && std::find(it->second.begin(), it->second.end(), 
+              callF->getName().str()) != it->second.end()) {
               
               findReachableBBFromTargetDepth(&BB, reachable, distance, C);
                 
