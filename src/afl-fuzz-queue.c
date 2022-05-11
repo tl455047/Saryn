@@ -541,6 +541,25 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
+  if (afl->direct_mode) {
+
+    q->distance = afl->cur_distance;
+    if (afl->cur_distance > 0) {
+
+      if (afl->max_distance <= 0) {
+
+        afl->max_distance = afl->cur_distance;
+        afl->min_distance = afl->cur_distance;
+      
+      }
+      
+      if (afl->cur_distance > afl->max_distance) afl->max_distance = afl->cur_distance;
+      if (afl->cur_distance < afl->min_distance) afl->min_distance = afl->cur_distance;
+
+    }
+
+  }
+
 #ifdef INTROSPECTION
   q->bitsmap_size = afl->bitsmap_size;
 #endif
@@ -1077,6 +1096,33 @@ u32 calculate_score(afl_state_t *afl, struct queue_entry *q) {
     // Add a lower bound to AFLFast's energy assignment strategies
     perf_score = 1;
 
+  }
+
+  if (afl->direct_mode) {
+    
+    u64 cur_ms = get_cur_time();
+    u64 t = (cur_ms - afl->start_time) / 1000;
+    double progress_to_tx = ((double) t) / ((double) 10 * 60.0);
+    double T = 1.0 / pow(20.0, progress_to_tx);
+    double power_factor = 1.0;
+    
+    if (q->distance > 0) {
+
+      double normalized_d = 0; 
+      if (afl->max_distance != afl->min_distance)
+        normalized_d = (q->distance - afl->min_distance) / (afl->max_distance - afl->min_distance);
+
+      if (normalized_d >= 0) {
+
+          double p = (1.0 - normalized_d) * (1.0 - T) + 0.5 * T;
+          power_factor = pow(2.0, 2.0 * (double) log2(MAX_FACTOR) * (p - 0.5));
+
+      }// else WARNF ("Normalized distance negative: %f", normalized_d);
+
+    }
+
+    perf_score *= power_factor;
+    
   }
 
   /* Make sure that we don't go over limit. */

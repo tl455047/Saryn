@@ -412,6 +412,29 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
     classify_counts(&afl->fsrv);
     cksum = hash64(afl->fsrv.trace_bits, afl->fsrv.map_size, HASH_CONST);
+
+    if (afl->direct_mode) {
+
+      if (q->distance <= 0) {
+
+        /* This calculates cur_distance */
+        has_new_bits(afl, afl->virgin_bits);
+        q->distance = afl->cur_distance;
+        if (afl->cur_distance > 0) {
+
+          if (afl->max_distance <= 0) {
+            afl->max_distance = afl->cur_distance;
+            afl->min_distance = afl->cur_distance;
+          }
+          if (afl->cur_distance > afl->max_distance) afl->max_distance = afl->cur_distance;
+          if (afl->cur_distance < afl->min_distance) afl->min_distance = afl->cur_distance;
+
+        }
+
+      }
+
+    }
+
     if (q->exec_cksum != cksum) {
 
       hnb = has_new_bits(afl, afl->virgin_bits);

@@ -45,6 +45,9 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
     if (afl->pass_stats[TAINT_CMP][tmp[i]->id].total >= 0xff)
       continue;
     
+    if (afl->direct_mode && tmp[i]->dist < 0)
+      continue;
+
     fprintf(f, "%llx %u\n", tmp[i]->ret_addr, tmp[i]->id);
     
     selected_inst++;

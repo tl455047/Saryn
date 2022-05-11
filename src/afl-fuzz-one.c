@@ -622,7 +622,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
 
   }
 
-  if (afl->direct_mode) {
+  /*if (afl->direct_mode) {
   
     u8 *queue_fn = "";
     FILE *f = NULL;
@@ -636,7 +636,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     common_fuzz_cmplog_stuff(afl, in_buf, len);
 
     common_fuzz_stuff(afl, in_buf, len);
-    
+
     for(u32 i = 0; i < CMP_MAP_W; i++) {
 
       if (!afl->shm.cmp_map->headers[i].hits) continue;
@@ -654,7 +654,7 @@ u8 fuzz_one_original(afl_state_t *afl) {
     ck_free(queue_fn);
     fclose(f);
    
-  }
+  }*/
 
   /* Skip right away if -d is given, if it has not been chosen sufficiently
      often to warrant the expensive deterministic stage (fuzz_level), or
