@@ -2303,8 +2303,8 @@ u8 taint_fuzz(afl_state_t *afl, u8 *buf, u8 *orig_buf, u32 len, u8 mode) {
     j = 0;
     for(u32 i = 0; i < afl->queue_cur->taint_cur[mode]; i++) {
   
-      if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
-        continue;
+      /*if (i > 0 && tmp[i]->id == tmp[i-1]->id) 
+        continue;*/
 
       if (taint_havoc(afl, buf, orig_buf, len, 
             (++j) * inst_stage_max, tmp[i]->taint)) goto taint_fuzz_failed;
