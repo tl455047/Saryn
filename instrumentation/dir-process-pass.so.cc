@@ -419,16 +419,13 @@ bool DirProcessPass::runOnModule(Module &M) {
           static const std::string Xlibs("/usr/");
           if (filename.empty() || line == 0 || !filename.compare(0, Xlibs.size(), Xlibs))
             continue;
+
+          std::size_t found = filename.find_last_of("/\\");
+          if (found != std::string::npos)
+            filename = filename.substr(found + 1);
             
-          if (BBName.empty()) {
-
-            std::size_t found = filename.find_last_of("/\\");
-            if (found != std::string::npos)
-              filename = filename.substr(found + 1);
-
+          if (BBName.empty()) 
             BBName = filename + ":" + std::to_string(line);
-
-          }
  
           if (!findTarget) {
             
@@ -704,8 +701,8 @@ static RegisterStandardPasses RegisterDirProcessPass(
 static RegisterStandardPasses RegisterDirProcessPass0(
     PassManagerBuilder::EP_EnabledOnOptLevel0, registerDirProcessPass);
 
-#if LLVM_VERSION_MAJOR >= 11
+/*#if LLVM_VERSION_MAJOR >= 11
 static RegisterStandardPasses RegisterCmpLogInstructionsPassLTO(
     PassManagerBuilder::EP_FullLinkTimeOptimizationLast,
     registerDirProcessPass);
-#endif
+#endif*/
