@@ -70,7 +70,8 @@ static u8 *in_dir = NULL,              /* input folder                      */
 static u8 outfile[PATH_MAX];
 
 static u8 *in_data,                    /* Input data                        */
-    *coverage_map;                     /* Coverage map                      */
+    *coverage_map,
+    *orig_coverage_map;                /* Coverage map                      */
 
 static u64 total;                      /* tuple content information         */
 static u32 tcnt, highest;              /* tuple content information         */
@@ -99,6 +100,11 @@ static volatile u8 stop_soon,          /* Ctrl-C pressed?                   */
 static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
 static sharedmem_t *     shm_fuzz;
+
+static u8 compare_mode;
+u8       *orig_coverage_filename,
+         *seed_out_dir;
+u32      total_new_edges;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -218,6 +224,44 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
   }
 
+}
+
+static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u32 len) {
+
+  FILE *f = NULL;
+  char *new_filename = NULL;
+  u8 has_new_cov = 0;
+  u32 cnt = 0;
+
+  for (u32 i = 0; i < map_size; i++) {
+
+    // find new edges for orig coverage map
+    if (fsrv->trace_bits[i] && !orig_coverage_map[i]) {
+      
+      has_new_cov = 1;
+      cnt++;
+      // update orig coverage map
+      orig_coverage_map[i] = 1;
+
+    }
+  }
+
+  if (has_new_cov) {
+
+    total_new_edges += cnt;
+
+    printf("new %03u edges %s\n", cnt, filename);
+
+    new_filename = alloc_printf("%s/%s", seed_out_dir, strrchr(filename, '/') + 1);
+    f = fopen(new_filename, "w");
+
+    fwrite(in_buf, 1, len, f);
+
+    ck_free(new_filename);
+    fclose(f);
+
+  }  
+  
 }
 
 /* Write results. */
@@ -789,15 +833,19 @@ u32 execute_testcases(u8 *dir) {
       }
 
       showmap_run_target_forkserver(fsrv, in_data, in_len);
-      ck_free(in_data);
       ++done;
 
+      if (compare_mode && collect_coverage)
+        compare_results(fsrv, fn2, in_data, in_len);
+
+      ck_free(in_data);
+    
       if (collect_coverage)
         analyze_results(fsrv);
       else
         tcnt = write_results_to_file(fsrv, outfile);
-
-    }
+  
+    } 
 
   }
 
@@ -897,6 +945,11 @@ int main(int argc, char **argv_orig, char **envp) {
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
+  compare_mode = 0;
+  orig_coverage_filename = NULL;
+  orig_coverage_map = NULL;
+  total_new_edges = 0;
+ 
   afl_forkserver_t fsrv_var = {0};
   if (getenv("AFL_DEBUG")) { debug = true; }
   if (get_afl_env("AFL_PRINT_FILENAMES")) { print_filenames = true; }
@@ -910,7 +963,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrsh")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshx:y:")) > 0) {
 
     switch (opt) {
 
@@ -1113,6 +1166,16 @@ int main(int argc, char **argv_orig, char **envp) {
         usage(argv[0]);
         return -1;
         break;
+      
+      case 'x':
+        orig_coverage_filename = ck_strdup(optarg);
+        compare_mode = 1;
+        break;
+      
+      case 'y':
+
+        seed_out_dir = ck_strdup(optarg);
+        break;
 
       default:
         usage(argv[0]);
@@ -1122,6 +1185,43 @@ int main(int argc, char **argv_orig, char **envp) {
   }
 
   if (optind == argc || !out_file) { usage(argv[0]); }
+  
+    if (compare_mode && collect_coverage) {
+
+    FILE *fp = NULL;
+    u8 tmp_buf[32];
+    s32 cnt = 0;
+
+    orig_coverage_map = ck_alloc(map_size + 64);
+    if (orig_coverage_map == NULL) {
+
+      PFATAL("Cannot allocate");
+
+    }
+
+    fp = fopen(orig_coverage_filename, "r");
+    fprintf(stderr, "%s\n", orig_coverage_filename);
+    if (fp == NULL) {
+
+      PFATAL("Cannot open file");
+
+    }
+
+    while(!feof(fp)) {
+      
+      memset(tmp_buf, 0, 32);
+      cnt = fscanf(fp, "%s\n", tmp_buf);
+
+      if (cnt < 1) continue;
+
+      strtok(tmp_buf, ":");
+      orig_coverage_map[atoi(tmp_buf)] = 1;
+      
+    }
+
+    fclose(fp);
+
+  }
 
   if (in_dir) {
 
@@ -1431,6 +1531,12 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
+  if (compare_mode && collect_coverage) {
+
+    OKF("Totally new %u edges found\n", total_new_edges);
+  
+  }
+
   if (stdin_file) {
 
     unlink(stdin_file);
@@ -1461,6 +1567,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (stdin_file) { ck_free(stdin_file); }
   if (collect_coverage) { free(coverage_map); }
+  
+  if (compare_mode && collect_coverage) { 
+    
+    free(seed_out_dir);
+    free(orig_coverage_map); 
+    free(orig_coverage_filename);
+
+  }
 
   argv_cpy_free(argv);
   if (fsrv->qemu_mode) { free(use_argv[2]); }

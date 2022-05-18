@@ -66,7 +66,7 @@ static u8 setup_symbolic_testcase(afl_state_t *afl, u8 *buf, u32 len) {
   fn = alloc_printf("%s/poc", afl->symbolic_path);
   f = create_ffile(fn);
   
-  fwrite(buf, len, 1, f);
+  fwrite(buf, 1, len, f);
 
   fflush(f);
 
