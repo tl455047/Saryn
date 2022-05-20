@@ -228,10 +228,13 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
 static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u32 len) {
 
-  FILE *f = NULL;
-  char *new_filename = NULL;
+  FILE *f = NULL, *fe = NULL;
+  char *fn = NULL, *efn = NULL;
   u8 has_new_cov = 0;
   u32 cnt = 0;
+
+  efn = alloc_printf("%s/%s,edges", seed_out_dir, strrchr(filename, '/') + 1);
+  fe = fopen(efn, "w");
 
   for (u32 i = 0; i < map_size; i++) {
 
@@ -243,8 +246,14 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
       // update orig coverage map
       orig_coverage_map[i] = 1;
 
+      fprintf(fe, "%u\n", i);
+    
     }
+
   }
+
+  ck_free(efn);
+  fclose(fe);
 
   if (has_new_cov) {
 
@@ -252,12 +261,13 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
 
     printf("new %03u edges %s\n", cnt, filename);
 
-    new_filename = alloc_printf("%s/%s", seed_out_dir, strrchr(filename, '/') + 1);
-    f = fopen(new_filename, "w");
+    // store seed
+    fn = alloc_printf("%s/%s", seed_out_dir, strrchr(filename, '/') + 1);
+    f = fopen(fn, "w");
 
     fwrite(in_buf, 1, len, f);
 
-    ck_free(new_filename);
+    ck_free(fn);
     fclose(f);
 
   }  
