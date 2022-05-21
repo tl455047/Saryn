@@ -101,10 +101,26 @@ static sharedmem_t       shm;
 static afl_forkserver_t *fsrv;
 static sharedmem_t *     shm_fuzz;
 
-static u8 compare_mode;
+/**
+ * 
+ * ***compare exclude mode***
+ * We want to know whether seeds tested now \
+ * can find additional edges in original coverage map. 
+ * 
+ * ***compare include mode***
+ * We want to know whether edges in original coverage map\
+ * can be found in seeds tested now.
+ * 
+ */
+          
+static u8 compare_exclude_mode, 
+          compare_include_mode;
+
 u8       *orig_coverage_filename,
          *seed_out_dir;
-u32      total_new_edges;
+u32      orig_edges,
+         new_edges,
+         found_edges;
 
 /* Classify tuple counts. Instead of mapping to individual bits, as in
    afl-fuzz.c, we map to more user-friendly numbers between 1 and 8. */
@@ -226,7 +242,62 @@ static void analyze_results(afl_forkserver_t *fsrv) {
 
 }
 
-static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u32 len) {
+static void compare_include_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u32 len) {
+  
+  FILE *f = NULL, *fe = NULL;
+  char *fn = NULL, *efn = NULL;
+  u8 is_found = 0;
+  u32 cnt = 0;
+  
+  efn = alloc_printf("%s/%s,edges", seed_out_dir, strrchr(filename, '/') + 1);
+
+  for (u32 i = 0; i < map_size; i++) {
+
+    if (fsrv->trace_bits[i] && orig_coverage_map[i]) {
+
+      is_found = 1;
+      cnt++;
+
+      orig_coverage_map[i] = 0;
+      
+      if (fe == NULL) {
+        
+        fe = fopen(efn, "w");
+        if (fe == NULL) { FATAL("cannot open file"); }
+
+      }
+
+      fprintf(fe, "%u\n", i);
+
+    }
+
+  }
+
+  ck_free(efn);
+
+  if (fe != NULL)
+    fclose(fe);
+
+  if (is_found) {
+    
+    found_edges += cnt;
+
+    printf("%03u edges in original map found by %s\n", cnt, filename);
+
+    // store seed
+    fn = alloc_printf("%s/%s", seed_out_dir, strrchr(filename, '/') + 1);
+    f = fopen(fn, "w");
+
+    fwrite(in_buf, 1, len, f);
+
+    ck_free(fn);
+    fclose(f);
+
+  }
+
+}
+
+static void compare_exclude_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u32 len) {
 
   FILE *f = NULL, *fe = NULL;
   char *fn = NULL, *efn = NULL;
@@ -234,8 +305,7 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
   u32 cnt = 0;
 
   efn = alloc_printf("%s/%s,edges", seed_out_dir, strrchr(filename, '/') + 1);
-  fe = fopen(efn, "w");
-
+ 
   for (u32 i = 0; i < map_size; i++) {
 
     // find new edges for orig coverage map
@@ -246,6 +316,12 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
       // update orig coverage map
       orig_coverage_map[i] = 1;
 
+      if (fe == NULL) {
+
+        fe = fopen(efn, "w");
+        if (fe == NULL) { FATAL("cannot open file"); }
+
+      }
       fprintf(fe, "%u\n", i);
     
     }
@@ -253,13 +329,14 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
   }
 
   ck_free(efn);
-  fclose(fe);
+  if (fe != NULL)
+    fclose(fe);
 
   if (has_new_cov) {
 
-    total_new_edges += cnt;
+    new_edges += cnt;
 
-    printf("new %03u edges %s\n", cnt, filename);
+    printf("new %03u edges by %s\n", cnt, filename);
 
     // store seed
     fn = alloc_printf("%s/%s", seed_out_dir, strrchr(filename, '/') + 1);
@@ -273,6 +350,7 @@ static void compare_results(afl_forkserver_t *fsrv, u8* filename, u8* in_buf, u3
   }  
   
 }
+
 
 /* Write results. */
 
@@ -845,8 +923,10 @@ u32 execute_testcases(u8 *dir) {
       showmap_run_target_forkserver(fsrv, in_data, in_len);
       ++done;
 
-      if (compare_mode && collect_coverage)
-        compare_results(fsrv, fn2, in_data, in_len);
+      if (compare_exclude_mode && collect_coverage)
+        compare_exclude_results(fsrv, fn2, in_data, in_len);
+      else if (compare_include_mode && collect_coverage)
+        compare_include_results(fsrv, fn2, in_data, in_len);
 
       ck_free(in_data);
     
@@ -912,7 +992,10 @@ static void usage(u8 *argv0) {
       "  -e         - show edge coverage only, ignore hit counts\n"
       "  -r         - show real tuple values instead of AFL filter values\n"
       "  -s         - do not classify the map\n"
-      "  -c         - allow core dumps\n\n"
+      "  -c         - allow core dumps\n"
+      "  -x         - compare exclude mode\n"
+      "  -y         - compare include mode\n"
+      "  -z         - set compare mode output file\n\n"
 
       "This tool displays raw tuple data captured by AFL instrumentation.\n"
       "For additional help, consult %s/README.md.\n\n"
@@ -955,11 +1038,14 @@ int main(int argc, char **argv_orig, char **envp) {
 
   char **argv = argv_cpy_dup(argc, argv_orig);
 
-  compare_mode = 0;
+  compare_exclude_mode = 0;
+  compare_include_mode = 0;
   orig_coverage_filename = NULL;
   orig_coverage_map = NULL;
-  total_new_edges = 0;
- 
+  orig_edges = 0;
+  new_edges = 0;
+  found_edges = 0;
+  
   afl_forkserver_t fsrv_var = {0};
   if (getenv("AFL_DEBUG")) { debug = true; }
   if (get_afl_env("AFL_PRINT_FILENAMES")) { print_filenames = true; }
@@ -973,7 +1059,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (getenv("AFL_QUIET") != NULL) { be_quiet = true; }
 
-  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshx:y:")) > 0) {
+  while ((opt = getopt(argc, argv, "+i:o:f:m:t:AeqCZOH:QUWbcrshx:y:z:")) > 0) {
 
     switch (opt) {
 
@@ -1178,11 +1264,28 @@ int main(int argc, char **argv_orig, char **envp) {
         break;
       
       case 'x':
+        if (compare_exclude_mode) { 
+          
+          FATAL("compare include mode and compare exclude mode cannot applyed at the same time"); 
+        
+        }
+
         orig_coverage_filename = ck_strdup(optarg);
-        compare_mode = 1;
+        compare_exclude_mode = 1;
         break;
       
       case 'y':
+        if (compare_include_mode) { 
+          
+          FATAL("compare include mode and compare exclude mode cannot applyed at the same time"); 
+        
+        }
+
+        orig_coverage_filename = ck_strdup(optarg);
+        compare_include_mode = 1;
+        break;
+
+      case 'z':
 
         seed_out_dir = ck_strdup(optarg);
         break;
@@ -1196,11 +1299,24 @@ int main(int argc, char **argv_orig, char **envp) {
 
   if (optind == argc || !out_file) { usage(argv[0]); }
   
-    if (compare_mode && collect_coverage) {
+    if ((compare_exclude_mode || compare_include_mode) 
+        && collect_coverage) {
 
     FILE *fp = NULL;
     u8 tmp_buf[32];
     s32 cnt = 0;
+
+    // check output directory exists
+    DIR* dir = opendir(seed_out_dir);
+    
+    if (!dir) {
+      
+      mkdir(seed_out_dir, 0700);
+
+      dir = opendir(seed_out_dir);
+      if (!dir) { FATAL("cannot create output directory"); }
+
+    }
 
     orig_coverage_map = ck_alloc(map_size + 64);
     if (orig_coverage_map == NULL) {
@@ -1226,7 +1342,8 @@ int main(int argc, char **argv_orig, char **envp) {
 
       strtok(tmp_buf, ":");
       orig_coverage_map[atoi(tmp_buf)] = 1;
-      
+      orig_edges++;
+
     }
 
     fclose(fp);
@@ -1541,10 +1658,15 @@ int main(int argc, char **argv_orig, char **envp) {
 
   }
 
-  if (compare_mode && collect_coverage) {
+  if (compare_exclude_mode && collect_coverage) {
 
-    OKF("Totally new %u edges found\n", total_new_edges);
+    OKF("Totally new %u edges found\n", new_edges);
   
+  }
+  else if (compare_include_mode && collect_coverage) {
+
+    OKF("%u/%u edges in orignal map found by seeds", found_edges, orig_edges);
+
   }
 
   if (stdin_file) {
@@ -1578,7 +1700,7 @@ int main(int argc, char **argv_orig, char **envp) {
   if (stdin_file) { ck_free(stdin_file); }
   if (collect_coverage) { free(coverage_map); }
   
-  if (compare_mode && collect_coverage) { 
+  if ((compare_exclude_mode || compare_include_mode) && collect_coverage) { 
     
     free(seed_out_dir);
     free(orig_coverage_map); 
