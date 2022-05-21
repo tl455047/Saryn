@@ -267,7 +267,7 @@ static void compare_include_results(afl_forkserver_t *fsrv, u8* filename, u8* in
 
       }
 
-      fprintf(fe, "%u\n", i);
+      fprintf(fe, "%u:1\n", i);
 
     }
 
@@ -322,7 +322,7 @@ static void compare_exclude_results(afl_forkserver_t *fsrv, u8* filename, u8* in
         if (fe == NULL) { FATAL("cannot open file"); }
 
       }
-      fprintf(fe, "%u\n", i);
+      fprintf(fe, "%u:1\n", i);
     
     }
 
