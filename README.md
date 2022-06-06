@@ -7,6 +7,7 @@
 - <details><summary>Saryn Prime </summary><p>
     <img src="https://i.imgur.com/qgBkR00.jpg"/>
 </p></details>
+
 ## Features
 #### Taint Inference
 - Collect ```critical bytes``` for cmp, switch instructions based on cmplog instrumentation, refer to [PATA](https://www.computer.org/csdl/proceedings-article/sp/2022/131600a154/1wKCe9rJFfi) for more details.
