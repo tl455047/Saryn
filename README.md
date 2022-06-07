@@ -35,7 +35,7 @@ make soure only
 ```
 - LLVM version should be 11.
 - Refer to [INSTALL.md](docs/INSTALL.md) for more details.
-- It is recommended to use gcc/g++ to compile, since sometimes error ocurred when using clang/clang++.
+- It is recommended to use gcc/g++ to compile, since sometimes error occurred when using clang/clang++.
 
 
 ## Compile target using afl-cc
@@ -91,7 +91,7 @@ Running cmplog-routines-pass by andreafioraldi@gmail.com
 ```
 - Refer to [README.md](docs/orig_README.md) for more details.
 ## Example
-- Build ```binutils 2.37``` with afl-cc
+- Build ```binutils 2.37``` with afl-cc.
 ```
 # get binutils
 https://mirror.ossplanet.net/gnu/binutils/binutils-2.37.tar.gz
@@ -115,7 +115,7 @@ export AFL_LLVM_CMPLOG=1
 make clean
 make
 ```
-- fuzz ```objdump``` with option ```-x```
+- Fuzz ```objdump``` with option ```-x```.
 ```
 ./afl-fuzz -i input-dir -o output-dir -m none -M fuzz-node-name -c /path/to/binutils-2.37/cmplog/binutils/objdump -- /path/to/binutils-2.37/afl/binutils/objdump -x @@
 ```
