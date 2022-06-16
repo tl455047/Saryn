@@ -1,4 +1,4 @@
-# Saryn
+# Saryn: Fuzzing with Taint Inference
 
 - Saryn is a [~~warframe~~](https://warframe.fandom.com/zh-tw/wiki/Saryn) , a coverage-guided fuzzer implemented ```taint inference```, and several tainte mutation strategies, including ```taint havoc```, ```input-to-state+```, and ```linear search```.
 
